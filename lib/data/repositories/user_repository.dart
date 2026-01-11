@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import '../models/user.dart';
 import '../services/password_service.dart';
 import '../../core/constants/supabase_config.dart';
@@ -236,7 +237,7 @@ class UserRepository extends BaseRepository<User> {
       final path = 'avatars/$fileName';
       await SupabaseService.client.storage
           .from('user-avatars')
-          .uploadBinary(path, imageBytes as dynamic, fileOptions: const FileOptions(upsert: true));
+          .uploadBinary(path, Uint8List.fromList(imageBytes), fileOptions: const FileOptions(upsert: true));
       
       return SupabaseService.client.storage.from('user-avatars').getPublicUrl(path);
     } catch (e) {
@@ -245,7 +246,7 @@ class UserRepository extends BaseRepository<User> {
         final path = 'avatars/$fileName';
         await SupabaseService.client.storage
             .from('products')
-            .uploadBinary(path, imageBytes as dynamic, fileOptions: const FileOptions(upsert: true));
+            .uploadBinary(path, Uint8List.fromList(imageBytes), fileOptions: const FileOptions(upsert: true));
         
         return SupabaseService.client.storage.from('products').getPublicUrl(path);
       } catch (e2) {
