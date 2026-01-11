@@ -92,13 +92,15 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildHeader(BuildContext context, WidgetRef ref, bool isMobile) {
     if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          _DateRangeSelector(),
-        ],
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
+            _DateRangeSelector(),
+          ],
+        ),
       );
     }
     return Row(
