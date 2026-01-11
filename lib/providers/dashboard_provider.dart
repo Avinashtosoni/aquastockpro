@@ -7,7 +7,7 @@ import 'customers_provider.dart';
 // Dashboard date range
 enum DashboardDateRange { today, week, month, year }
 
-final dashboardDateRangeProvider = StateProvider<DashboardDateRange>((ref) => DashboardDateRange.week);
+final dashboardDateRangeProvider = StateProvider<DashboardDateRange>((ref) => DashboardDateRange.today);
 
 // Dashboard stats
 class DashboardStats {
