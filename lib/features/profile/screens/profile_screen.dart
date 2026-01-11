@@ -381,14 +381,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (_selectedImageBytes != null) {
         setState(() => _isUploadingImage = true);
         final fileName = 'avatar_${currentUser.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        // uploadAvatar throws on error, so no need to check for null
         final uploadedUrl = await UserRepository().uploadAvatar(_selectedImageBytes!.toList(), fileName);
-        if (uploadedUrl != null) {
-          if (currentUser.avatarUrl != null) {
-            await UserRepository().deleteAvatar(currentUser.avatarUrl!);
-          }
-          finalAvatarUrl = uploadedUrl;
-        }
         setState(() => _isUploadingImage = false);
+        
+        // Delete old avatar if exists
+        if (currentUser.avatarUrl != null) {
+          await UserRepository().deleteAvatar(currentUser.avatarUrl!);
+        }
+        finalAvatarUrl = uploadedUrl;
       }
 
       final updatedUser = currentUser.copyWith(

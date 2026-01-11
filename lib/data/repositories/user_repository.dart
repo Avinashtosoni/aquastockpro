@@ -233,6 +233,7 @@ class UserRepository extends BaseRepository<User> {
   Future<String?> uploadAvatar(List<int> imageBytes, String fileName) async {
     _checkConnection();
     
+    // Try user-avatars bucket first
     try {
       final path = 'avatars/$fileName';
       await SupabaseService.client.storage
@@ -241,7 +242,9 @@ class UserRepository extends BaseRepository<User> {
       
       return SupabaseService.client.storage.from('user-avatars').getPublicUrl(path);
     } catch (e) {
-      // If bucket doesn't exist, try with products bucket as fallback
+      print('uploadAvatar: user-avatars bucket failed: $e');
+      
+      // Fallback: try products bucket (if user-avatars doesn't exist)
       try {
         final path = 'avatars/$fileName';
         await SupabaseService.client.storage
@@ -250,7 +253,9 @@ class UserRepository extends BaseRepository<User> {
         
         return SupabaseService.client.storage.from('products').getPublicUrl(path);
       } catch (e2) {
-        return null;
+        print('uploadAvatar: products bucket also failed: $e2');
+        // Both buckets failed - throw the error so user can see it
+        throw Exception('Storage upload failed. Create a "user-avatars" bucket in Supabase Storage.');
       }
     }
   }
