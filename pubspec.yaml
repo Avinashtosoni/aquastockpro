@@ -1,0 +1,105 @@
+name: aquastockpro
+description: "AquaStockPro - Complete POS System with Admin Dashboard"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Utilities (path used for file operations)
+  path: ^1.8.3
+  
+  # Cloud Database - Supabase
+  supabase_flutter: ^2.3.4
+  
+  # UI & Icons
+  flutter_svg: ^2.0.9
+  iconsax: ^0.0.8
+  fl_chart: ^0.66.2
+  google_fonts: ^6.1.0
+  flutter_slidable: ^3.1.1  # Cross-platform swipe gestures
+  
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.3.3
+  share_plus: ^7.2.1
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  image_picker: ^1.2.1
+  cached_network_image: ^3.3.1  # Image caching for faster loading
+  path_provider: ^2.1.2
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^5.0.2
+  
+  # Animations
+  flutter_animate: ^4.5.0
+  
+  # Alerts
+  quickalert: ^1.1.0
+  
+  # Barcode Scanning
+  mobile_scanner: ^5.1.1
+  
+  # File Import/Export
+  excel: ^4.0.2
+  csv: ^6.0.0
+  file_picker: ^8.0.0+1
+  
+  # Communication
+  url_launcher: ^6.2.4
+  
+  # Notifications
+  flutter_local_notifications: ^17.0.0
+  permission_handler: ^11.3.0
+  
+  # Biometric Auth
+  local_auth: ^2.2.0
+  
+  # HTTP for Cloud SMS API
+  http: ^1.2.0
+  
+  # Environment Configuration
+  flutter_dotenv: ^5.1.0
+  
+  # Security
+  crypto: ^3.0.3
+  flutter_secure_storage: ^9.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - .env
+    - assets/images/
+    - assets/icons/
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"

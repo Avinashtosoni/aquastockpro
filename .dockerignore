@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Build directories
+build/
+.dart_tool/
+.packages
+
+# Platform specific (not needed for web)
+android/
+ios/
+macos/
+linux/
+windows/
+
+# Test and docs
+test/
+doc/
+
+# Keep README but ignore other markdown
+CHANGELOG.md
+CONTRIBUTING.md
+
+# Misc
+*.log
