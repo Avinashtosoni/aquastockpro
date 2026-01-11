@@ -50,6 +50,7 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   bool _isPartialPayment = false; // Enable partial payment mode
   Customer? _selectedCustomer;
   final _customerSearchController = TextEditingController();
+  final _walkInPhoneController = TextEditingController(); // Walk-in customer phone
   BusinessSettings? _cachedSettings; // Cached settings for invoice generation
   final bool _showCustomerSearch = false;
 
@@ -76,6 +77,7 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   void dispose() {
     _amountController.dispose();
     _customerSearchController.dispose();
+    _walkInPhoneController.dispose();
     _notesController.dispose();
     _discountCodeController.dispose();
     super.dispose();
@@ -249,7 +251,16 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                       ),
                       const SizedBox(height: 10),
                       Row(
-                        children: PaymentMethod.values.where((m) => m != PaymentMethod.mixed).map((method) {
+                        children: PaymentMethod.values.where((m) {
+                          // Hide mixed payment
+                          if (m == PaymentMethod.mixed) return false;
+                          // Hide credit for walk-in customers - no udhar for walk-in
+                          if (m == PaymentMethod.credit && 
+                              (_selectedCustomer == null || _selectedCustomer!.id == 'walk-in')) {
+                            return false;
+                          }
+                          return true;
+                        }).map((method) {
                           final isSelected = _selectedMethod == method;
                           return Expanded(
                             child: Padding(
@@ -291,75 +302,6 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                         }).toList(),
                       ),
                       const SizedBox(height: 20),
-
-                      // Discount Code Section
-                      const Text(
-                        'Discount Code',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _discountCodeController,
-                              enabled: _appliedDiscountCode == null,
-                              decoration: InputDecoration(
-                                hintText: 'Enter code...',
-                                hintStyle: TextStyle(fontSize: 13, color: AppColors.grey400),
-                                prefixIcon: Icon(Iconsax.discount_shape, size: 18, color: AppColors.grey400),
-                                filled: true,
-                                fillColor: AppColors.grey100,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              ),
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (_appliedDiscountCode == null)
-                            ElevatedButton(
-                              onPressed: _applyDiscountCode,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              ),
-                              child: const Text('Apply'),
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Iconsax.tick_circle, size: 16, color: AppColors.success),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '-${currencyFormat.format(_discountAmount)}',
-                                    style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    onTap: () => setState(() {
-                                      _appliedDiscountCode = null;
-                                      _discountAmount = 0;
-                                      _discountCodeController.clear();
-                                    }),
-                                    child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
 
                       // Order Notes
                       const Text(
@@ -772,6 +714,76 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                 ),
               ),
             ],
+          ] else if (_selectedCustomer != null && _selectedCustomer!.id == 'walk-in') ...[
+            // Walk-in customer selected - show with phone field
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.grey300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.grey200,
+                        child: Icon(Iconsax.profile_circle, size: 22, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Walk-in Customer',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _selectedCustomer = null;
+                          _walkInPhoneController.clear();
+                        }),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 0),
+                        ),
+                        child: const Text('Change'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Phone number field for walk-in
+                  TextField(
+                    controller: _walkInPhoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      hintText: 'WhatsApp Number (optional)',
+                      hintStyle: TextStyle(fontSize: 13, color: AppColors.grey400),
+                      prefixIcon: Icon(Iconsax.call, size: 18, color: AppColors.grey400),
+                      suffixIcon: Icon(Iconsax.message, size: 18, color: Color(0xFF25D366)),
+                      filled: true,
+                      fillColor: AppColors.grey50,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: AppColors.grey200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: AppColors.grey200),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter phone to send bill via WhatsApp',
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
           ] else ...[
             // Customer search/select
             Column(
@@ -873,15 +885,34 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                     error: (error, stackTrace) => const SizedBox(),
                   ),
                 
-                // Walk-in option
+                // Walk-in AND Add New Customer options
                 if (_customerSearchController.text.isEmpty)
-                  TextButton.icon(
-                    onPressed: () => setState(() => _selectedCustomer = Customer.walkInCustomer),
-                    icon: const Icon(Iconsax.profile_circle, size: 16),
-                    label: const Text('Continue as Walk-in Customer'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() => _selectedCustomer = Customer.walkInCustomer),
+                          icon: const Icon(Iconsax.profile_circle, size: 16),
+                          label: const Text('Walk-in'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textSecondary,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _showAddCustomerDialog(''),
+                          icon: const Icon(Iconsax.user_add, size: 16),
+                          label: const Text('Add New'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
