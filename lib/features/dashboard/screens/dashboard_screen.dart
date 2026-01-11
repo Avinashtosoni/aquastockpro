@@ -96,13 +96,6 @@ class DashboardScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Welcome back!',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
           const SizedBox(height: 12),
           _DateRangeSelector(),
         ],
@@ -137,71 +130,71 @@ class DashboardScreen extends ConsumerWidget {
     bool isTablet,
     double screenWidth,
   ) {
-    // Determine grid columns based on screen size
-    int crossAxisCount = 4;
-    double childAspectRatio = 2.2; // Wider, shorter cards like reference
-    
-    if (isMobile) {
-      crossAxisCount = 2;
-      childAspectRatio = 1.6; // Shorter cards for mobile
-    } else if (isTablet) {
-      crossAxisCount = 2;
-      childAspectRatio = 2.0; // Shorter for tablet
-    } else if (screenWidth < 1100) {
-      crossAxisCount = 2;
-      childAspectRatio = 2.2; // Shorter for small desktop
+    // List of cards to be reused in both layouts
+    final cards = [
+      PastelStatsCard(
+        title: "${stats.periodLabel} Sales",
+        value: currencyFormat.format(stats.periodSales),
+        icon: Iconsax.money_recive,
+        backgroundColor: context.isDarkMode ? AppColors.darkPastelCyan : AppColors.pastelCyan,
+        iconColor: AppColors.pastelCyanDark,
+        compact: isMobile,
+        animationDelay: 0,
+      ),
+      PastelStatsCard(
+        title: "${stats.periodLabel} Orders",
+        value: stats.periodOrders.toString(),
+        icon: Iconsax.receipt_item,
+        backgroundColor: context.isDarkMode ? AppColors.darkPastelGreen : AppColors.pastelGreen,
+        iconColor: AppColors.pastelGreenDark,
+        compact: isMobile,
+        animationDelay: 100,
+      ),
+      PastelStatsCard(
+        title: 'Low Stock',
+        value: stats.lowStockCount.toString(),
+        icon: Iconsax.warning_2,
+        backgroundColor: context.isDarkMode ? AppColors.darkPastelOrange : AppColors.pastelOrange,
+        iconColor: AppColors.pastelOrangeDark,
+        subtitle: stats.lowStockCount > 0 ? 'Needs attention' : 'All stocked',
+        compact: isMobile,
+        animationDelay: 300,
+      ),
+      PastelStatsCard(
+        title: 'Pending Credit',
+        value: currencyFormat.format(stats.totalPendingCredit),
+        icon: Iconsax.wallet_minus,
+        backgroundColor: context.isDarkMode ? AppColors.darkPastelPurple : AppColors.pastelPurple,
+        iconColor: stats.totalPendingCredit > 0 ? AppColors.error : AppColors.pastelPurpleDark,
+        subtitle: stats.customersWithCreditCount > 0 
+            ? '${stats.customersWithCreditCount} customers' 
+            : 'No pending',
+        compact: isMobile,
+        animationDelay: 400,
+      ),
+    ];
+
+    // Desktop Layout: Use Row with Expanded for natural height and full width
+    if (!isMobile && !isTablet && screenWidth >= 1100) {
+      return Row(
+        children: cards.map((card) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: card,
+          ),
+        )).toList(),
+      );
     }
 
+    // Mobile/Tablet Layout: Use GridView
     return GridView.count(
-      crossAxisCount: crossAxisCount,
+      crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: isMobile ? 12 : 16,
       crossAxisSpacing: isMobile ? 12 : 16,
-      childAspectRatio: childAspectRatio,
-      children: [
-        PastelStatsCard(
-          title: "${stats.periodLabel} Sales",
-          value: currencyFormat.format(stats.periodSales),
-          icon: Iconsax.money_recive,
-          backgroundColor: context.isDarkMode ? AppColors.darkPastelCyan : AppColors.pastelCyan,
-          iconColor: AppColors.pastelCyanDark,
-          compact: isMobile,
-          animationDelay: 0,
-        ),
-        PastelStatsCard(
-          title: "${stats.periodLabel} Orders",
-          value: stats.periodOrders.toString(),
-          icon: Iconsax.receipt_item,
-          backgroundColor: context.isDarkMode ? AppColors.darkPastelGreen : AppColors.pastelGreen,
-          iconColor: AppColors.pastelGreenDark,
-          compact: isMobile,
-          animationDelay: 100,
-        ),
-        
-        PastelStatsCard(
-          title: 'Low Stock',
-          value: stats.lowStockCount.toString(),
-          icon: Iconsax.warning_2,
-          backgroundColor: context.isDarkMode ? AppColors.darkPastelOrange : AppColors.pastelOrange,
-          iconColor: AppColors.pastelOrangeDark,
-          subtitle: stats.lowStockCount > 0 ? 'Needs attention' : 'All stocked',
-          compact: isMobile,
-          animationDelay: 300,
-        ),
-        PastelStatsCard(
-          title: 'Pending Credit',
-          value: currencyFormat.format(stats.totalPendingCredit),
-          icon: Iconsax.wallet_minus,
-          backgroundColor: context.isDarkMode ? AppColors.darkPastelPurple : AppColors.pastelPurple,
-          iconColor: stats.totalPendingCredit > 0 ? AppColors.error : AppColors.pastelPurpleDark,
-          subtitle: stats.customersWithCreditCount > 0 
-              ? '${stats.customersWithCreditCount} customers' 
-              : 'No pending',
-          compact: isMobile,
-          animationDelay: 400,
-        ),
-      ],
+      childAspectRatio: 1.5, // Taller cards for grid to accommodate content comfortably
+      children: cards,
     );
   }
 }

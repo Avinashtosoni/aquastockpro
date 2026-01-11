@@ -414,115 +414,106 @@ class _PastelStatsCardState extends State<PastelStatsCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Use iconColor as the primary accent color
+    final accentColor = widget.iconColor;
+    final isDark = context.isDarkMode;
+    
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         transform: Matrix4.identity()
-          ..setTranslationRaw(0.0, _isHovered ? -3.0 : 0.0, 0.0),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: widget.backgroundColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: widget.iconColor.withValues(alpha: 0.15),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: _isHovered ? 0.08 : 0.04),
-                    blurRadius: _isHovered ? 10 : 4,
-                    offset: Offset(0, _isHovered ? 4 : 2),
-                  ),
-                ],
+          ..setTranslationRaw(0.0, _isHovered ? -4.0 : 0.0, 0.0),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: EdgeInsets.all(widget.compact ? 12 : 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkCardBackground : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _isHovered 
+                    ? accentColor.withValues(alpha: 0.5)
+                    : (isDark ? AppColors.darkCardBorder : accentColor.withValues(alpha: 0.2)),
+                width: 1, // Consistent width
               ),
-              child: Column(
-                children: [
-                  // Top pastel section (empty space)
-                  Expanded(
-                    flex: 3,
-                    child: const SizedBox(),
-                  ),
-                  // Bottom content section
-                  Expanded(
-                    flex: 4,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: widget.compact ? 10 : 14,
-                        vertical: widget.compact ? 6 : 8,
+              boxShadow: [
+                 BoxShadow(
+                  color: accentColor.withValues(alpha: _isHovered ? 0.15 : 0.05),
+                  blurRadius: _isHovered ? 12 : 8,
+                  offset: Offset(0, _isHovered ? 6 : 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // Important for reducing unused space
+              children: [
+                // Header with Icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Left side - Text content
-                          Expanded(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.bottomLeft,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    widget.title,
-                                    style: TextStyle(
-                                      fontSize: widget.compact ? 10 : 11,
-                                      color: context.isDarkMode ? AppColors.darkTextSecondary : AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  SizedBox(height: widget.compact ? 2 : 4),
-                                  Text(
-                                    widget.value,
-                                    style: TextStyle(
-                                      fontSize: widget.compact ? 18 : 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: context.isDarkMode ? AppColors.darkTextPrimary : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  if (widget.subtitle != null) ...[
-                                    SizedBox(height: widget.compact ? 1 : 2),
-                                    Text(
-                                      widget.subtitle!,
-                                      style: TextStyle(
-                                        fontSize: widget.compact ? 9 : 10,
-                                        color: widget.iconColor,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Right side - Icon
-                          Container(
-                            padding: EdgeInsets.all(widget.compact ? 6 : 8),
-                            decoration: BoxDecoration(
-                              color: widget.iconColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              widget.icon,
-                              color: widget.iconColor,
-                              size: widget.compact ? 18 : 20,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        widget.icon,
+                        size: widget.compact ? 18 : 20,
+                        color: accentColor,
                       ),
                     ),
+                    // Optional trend badge could go here if needed
+                  ],
+                ),
+                
+                SizedBox(height: widget.compact ? 10 : 12),
+                
+                // Value
+                Text(
+                  widget.value,
+                  style: TextStyle(
+                    fontSize: widget.compact ? 18 : 22,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor, // Colored value like Order stats
+                    letterSpacing: -0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                
+                SizedBox(height: widget.compact ? 2 : 4),
+                
+                // Title
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontSize: widget.compact ? 11 : 12,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                
+                // Subtitle
+                if (widget.subtitle != null) ...[
+                  SizedBox(height: 2),
+                  Text(
+                    widget.subtitle!,
+                    style: TextStyle(
+                      fontSize: widget.compact ? 10 : 11,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
