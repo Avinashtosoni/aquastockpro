@@ -341,14 +341,19 @@ class _UserProfileButton extends StatelessWidget {
             CircleAvatar(
               radius: compact ? 14 : 16,
               backgroundColor: AppColors.primary,
-              child: Text(
-                user?.name.substring(0, 1).toUpperCase() ?? 'A',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: compact ? 11 : 13,
-                ),
-              ),
+              backgroundImage: user?.avatarUrl != null
+                  ? NetworkImage(user!.avatarUrl!)
+                  : null,
+              child: user?.avatarUrl == null
+                  ? Text(
+                      user?.name.substring(0, 1).toUpperCase() ?? 'A',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: compact ? 11 : 13,
+                      ),
+                    )
+                  : null,
             ),
             if (!compact) ...[
               const SizedBox(width: 8),
