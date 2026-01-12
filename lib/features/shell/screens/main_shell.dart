@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../data/models/permission.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/permissions_provider.dart';
 import '../../../providers/products_provider.dart';
 import '../../../providers/categories_provider.dart';
 import '../../../providers/dashboard_provider.dart';
@@ -39,14 +41,14 @@ class NavItem {
   final String label;
   final IconData icon;
   final IconData activeIcon;
-  final bool requiresAdmin;
+  final Permission? requiredPermission; // Permission required to see this item
 
   const NavItem({
     required this.id,
     required this.label,
     required this.icon,
     required this.activeIcon,
-    this.requiresAdmin = false,
+    this.requiredPermission,
   });
 }
 
@@ -56,74 +58,84 @@ final navItems = [
     label: 'Dashboard',
     icon: Iconsax.home,
     activeIcon: Iconsax.home_15,
+    requiredPermission: Permission.viewDashboard,
   ),
   const NavItem(
     id: 'pos',
     label: 'POS',
     icon: Iconsax.calculator,
     activeIcon: Iconsax.calculator5,
+    requiredPermission: Permission.accessPOS,
   ),
   const NavItem(
     id: 'products',
     label: 'Products',
     icon: Iconsax.box,
     activeIcon: Iconsax.box5,
+    requiredPermission: Permission.viewProducts,
   ),
   const NavItem(
     id: 'categories',
     label: 'Categories',
     icon: Iconsax.category,
     activeIcon: Iconsax.category5,
+    requiredPermission: Permission.viewCategories,
   ),
   const NavItem(
     id: 'orders',
     label: 'Orders',
     icon: Iconsax.receipt,
     activeIcon: Iconsax.receipt_25,
+    requiredPermission: Permission.viewOrders,
   ),
   const NavItem(
     id: 'customers',
     label: 'Customers',
     icon: Iconsax.people,
     activeIcon: Iconsax.people5,
+    requiredPermission: Permission.viewCustomers,
   ),
   const NavItem(
     id: 'payments',
     label: 'Payments',
     icon: Iconsax.wallet_money,
     activeIcon: Iconsax.wallet_money,
+    requiredPermission: Permission.viewPayments,
   ),
   const NavItem(
     id: 'quotations',
     label: 'Quotations',
     icon: Iconsax.document_text,
     activeIcon: Iconsax.document_text_1,
+    requiredPermission: Permission.viewQuotations,
   ),
   const NavItem(
     id: 'employees',
     label: 'Employees',
     icon: Iconsax.user_octagon,
     activeIcon: Iconsax.user_octagon5,
-    requiresAdmin: true,
+    requiredPermission: Permission.viewEmployees,
   ),
   const NavItem(
     id: 'suppliers',
     label: 'Suppliers',
     icon: Iconsax.truck_fast,
     activeIcon: Iconsax.truck_fast,
-    requiresAdmin: true,
+    requiredPermission: Permission.viewSuppliers,
   ),
   const NavItem(
     id: 'reports',
     label: 'Reports',
     icon: Iconsax.chart,
     activeIcon: Iconsax.chart_15,
+    requiredPermission: Permission.viewBasicReports,
   ),
   const NavItem(
     id: 'settings',
     label: 'Settings',
     icon: Iconsax.setting,
     activeIcon: Iconsax.setting5,
+    requiredPermission: Permission.viewSettings,
   ),
 ];
 
@@ -161,9 +173,15 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final selectedItem = ref.watch(selectedNavItemProvider);
-    final authState = ref.watch(authProvider);
-    final isAdmin = authState.isAdmin;
-    final filteredItems = navItems.where((item) => !item.requiresAdmin || isAdmin).toList();
+    final userPermissions = ref.watch(currentUserPermissionsProvider);
+    
+    // Filter items based on user permissions
+    final filteredItems = userPermissions.maybeWhen(
+      data: (permissions) => navItems.where((item) =>
+        item.requiredPermission == null || permissions.contains(item.requiredPermission)
+      ).toList(),
+      orElse: () => navItems.where((item) => item.requiredPermission == null).toList(),
+    );
     
     final isMobile = ScreenBreakpoints.isMobile(context);
     final isDesktop = ScreenBreakpoints.isDesktop(context);

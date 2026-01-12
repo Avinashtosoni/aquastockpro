@@ -10,6 +10,7 @@ class Order {
   final String orderNumber;
   final String? customerId;
   final String? customerName;
+  final String? customerPhone; // Added phone number
   final String? employeeId;
   final String? employeeName;
   final List<OrderItem> items;
@@ -30,6 +31,7 @@ class Order {
     required this.orderNumber,
     this.customerId,
     this.customerName,
+    this.customerPhone,
     this.employeeId,
     this.employeeName,
     required this.items,
@@ -53,6 +55,7 @@ class Order {
     String? orderNumber,
     String? customerId,
     String? customerName,
+    String? customerPhone,
     String? employeeId,
     String? employeeName,
     List<OrderItem>? items,
@@ -73,6 +76,7 @@ class Order {
       orderNumber: orderNumber ?? this.orderNumber,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
       items: items ?? this.items,
@@ -91,11 +95,11 @@ class Order {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'id': id,
       'order_number': orderNumber,
-      'customer_id': customerId,
       'customer_name': customerName,
+      'customer_phone': customerPhone,
       'user_id': employeeId,
       'employee_name': employeeName ?? 'Staff',
       'subtotal': subtotal,
@@ -111,6 +115,14 @@ class Order {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+    
+    // Only include customer_id if valid (not null, not empty, not walk-in)
+    // This prevents foreign key constraint violation
+    if (customerId != null && customerId!.isNotEmpty && customerId != 'walk-in') {
+      map['customer_id'] = customerId;
+    }
+    
+    return map;
   }
 
   factory Order.fromMap(Map<String, dynamic> map, {List<OrderItem>? items}) {
@@ -119,6 +131,7 @@ class Order {
       orderNumber: map['order_number'] as String,
       customerId: map['customer_id'] as String?,
       customerName: map['customer_name'] as String?,
+      customerPhone: map['customer_phone'] as String?,
       employeeId: map['user_id'] as String?,
       employeeName: map['employee_name'] as String?,
       items: items ?? [],

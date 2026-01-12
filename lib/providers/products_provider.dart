@@ -4,16 +4,14 @@ import '../data/repositories/product_repository.dart';
 
 final productRepositoryProvider = Provider((ref) => ProductRepository());
 
-// All products (cached with keepAlive for performance)
-final productsProvider = FutureProvider<List<Product>>((ref) async {
-  ref.keepAlive(); // Cache products to prevent re-fetching
+// All products (auto-dispose for proper refresh)
+final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
   final repository = ref.watch(productRepositoryProvider);
   return repository.getAll();
 });
 
-// Products by category (cached)
-final productsByCategoryProvider = FutureProvider.family<List<Product>, String>((ref, categoryId) async {
-  ref.keepAlive(); // Cache category products
+// Products by category (auto-dispose for proper refresh)
+final productsByCategoryProvider = FutureProvider.autoDispose.family<List<Product>, String>((ref, categoryId) async {
   final repository = ref.watch(productRepositoryProvider);
   return repository.getByCategory(categoryId);
 });
@@ -89,6 +87,17 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<Product>>> {
     loadProducts();
   }
 
+  /// Invalidate all cached product providers to ensure fresh data everywhere
+  void _invalidateAllProductProviders() {
+    _ref.invalidate(productsProvider);
+    _ref.invalidate(filteredProductsProvider);
+    _ref.invalidate(lowStockProductsProvider);
+    _ref.invalidate(outOfStockProductsProvider);
+    _ref.invalidate(productCountProvider);
+    _ref.invalidate(inventoryValueProvider);
+    // Note: productsByCategoryProvider is family provider, invalidated on next access
+  }
+
   Future<void> loadProducts() async {
     state = const AsyncValue.loading();
     try {
@@ -103,6 +112,7 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<Product>>> {
     try {
       await _ref.read(productRepositoryProvider).insert(product);
       await loadProducts();
+      _invalidateAllProductProviders(); // Refresh POS and other screens
     } catch (e) {
       rethrow;
     }
@@ -112,6 +122,7 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<Product>>> {
     try {
       await _ref.read(productRepositoryProvider).update(product);
       await loadProducts();
+      _invalidateAllProductProviders(); // Refresh POS and other screens
     } catch (e) {
       rethrow;
     }
@@ -121,6 +132,7 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<Product>>> {
     try {
       await _ref.read(productRepositoryProvider).delete(id);
       await loadProducts();
+      _invalidateAllProductProviders(); // Refresh POS and other screens
     } catch (e) {
       rethrow;
     }
@@ -130,6 +142,7 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<Product>>> {
     try {
       await _ref.read(productRepositoryProvider).updateStock(productId, quantityChange);
       await loadProducts();
+      _invalidateAllProductProviders(); // Refresh POS and other screens
     } catch (e) {
       rethrow;
     }

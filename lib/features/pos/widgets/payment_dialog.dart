@@ -49,10 +49,14 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   bool _isProcessing = false;
   bool _isPartialPayment = false; // Enable partial payment mode
   Customer? _selectedCustomer;
-  final _customerSearchController = TextEditingController();
-  final _walkInPhoneController = TextEditingController(); // Walk-in customer phone
+  
+  // Phone-first customer flow
+  final _phoneController = TextEditingController(); // Mandatory phone input
+  final _optionalNameController = TextEditingController(); // Optional name for new customers
+  Customer? _matchedCustomer; // Auto-matched customer by phone
+  bool _isSearching = false; // Phone search in progress
+  
   BusinessSettings? _cachedSettings; // Cached settings for invoice generation
-  final bool _showCustomerSearch = false;
 
   @override
   void initState() {
@@ -60,6 +64,13 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
     _amountController.text = widget.cart.total.toStringAsFixed(2);
     _paidAmount = widget.cart.total;
     _selectedCustomer = widget.selectedCustomer;
+    
+    // Pre-fill phone if customer already selected from cart
+    if (widget.selectedCustomer != null && widget.selectedCustomer!.phone != null) {
+      _phoneController.text = widget.selectedCustomer!.phone!;
+      _matchedCustomer = widget.selectedCustomer;
+    }
+    
     // Preload settings
     _loadSettings();
   }
@@ -76,8 +87,8 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   @override
   void dispose() {
     _amountController.dispose();
-    _customerSearchController.dispose();
-    _walkInPhoneController.dispose();
+    _phoneController.dispose();
+    _optionalNameController.dispose();
     _notesController.dispose();
     _discountCodeController.dispose();
     super.dispose();
@@ -254,10 +265,15 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                         children: PaymentMethod.values.where((m) {
                           // Hide mixed payment
                           if (m == PaymentMethod.mixed) return false;
-                          // Hide credit for walk-in customers - no udhar for walk-in
-                          if (m == PaymentMethod.credit && 
-                              (_selectedCustomer == null || _selectedCustomer!.id == 'walk-in')) {
-                            return false;
+                          // Hide credit for customers WITHOUT complete profile
+                          // Credit/Udhar requires: Name + Phone + Address
+                          if (m == PaymentMethod.credit) {
+                            final customer = _matchedCustomer;
+                            if (customer == null) return false;
+                            final hasCompleteProfile = customer.name.isNotEmpty &&
+                                customer.phone != null && customer.phone!.isNotEmpty &&
+                                customer.address != null && customer.address!.isNotEmpty;
+                            return hasCompleteProfile;
                           }
                           return true;
                         }).map((method) {
@@ -331,9 +347,12 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Partial Payment Option (for customers only, not walk-in)
-                      if (_selectedCustomer != null && 
-                          _selectedCustomer!.id != 'walk-in' &&
+                      // Partial Payment Option (only for customers with complete profile)
+                      // Credit/Udhar requires: Name + Phone + Address
+                      if (_matchedCustomer != null && 
+                          _matchedCustomer!.name.isNotEmpty &&
+                          _matchedCustomer!.phone != null && _matchedCustomer!.phone!.isNotEmpty &&
+                          _matchedCustomer!.address != null && _matchedCustomer!.address!.isNotEmpty &&
                           _selectedMethod != PaymentMethod.credit) ...[
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -557,369 +576,305 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
     });
   }
 
+  /// Phone-first customer section - simplified flow
+  /// Phone is mandatory, auto-matches existing customers
   Widget _buildCustomerSection() {
     final customersAsync = ref.watch(customersNotifierProvider);
+    final hasPhone = _phoneController.text.trim().length >= 10;
     
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.grey50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.grey200),
+        border: Border.all(color: _matchedCustomer != null 
+            ? AppColors.primary.withValues(alpha: 0.4) 
+            : AppColors.grey200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Header
           Row(
             children: [
-              Icon(Iconsax.user, size: 18, color: AppColors.textSecondary),
+              Icon(Iconsax.call, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
               Text(
-                'Customer',
+                'Mobile Number',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: AppColors.error,
                 ),
               ),
               const Spacer(),
-              if (_selectedCustomer != null && _selectedCustomer!.id != 'walk-in')
-                TextButton.icon(
-                  onPressed: () => setState(() => _selectedCustomer = null),
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('Clear'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+              if (_isSearching)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                 ),
             ],
           ),
           const SizedBox(height: 10),
           
-          if (_selectedCustomer != null && _selectedCustomer!.id != 'walk-in') ...[
-            // Show selected customer
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
+          // Phone Input Field
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              hintText: 'Enter 10 digit mobile number',
+              hintStyle: TextStyle(fontSize: 14, color: AppColors.grey400),
+              prefixIcon: Icon(Iconsax.call, size: 20, color: AppColors.grey500),
+              suffixIcon: _phoneController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, size: 18, color: AppColors.grey400),
+                      onPressed: () {
+                        setState(() {
+                          _phoneController.clear();
+                          _matchedCustomer = null;
+                          _optionalNameController.clear();
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.white,
+              counterText: '', // Hide counter
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                borderSide: BorderSide(color: AppColors.grey300),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      _selectedCustomer!.name[0].toUpperCase(),
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCustomer!.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        if (_selectedCustomer!.phone != null)
-                          Row(
-                            children: [
-                              Icon(Iconsax.call, size: 12, color: AppColors.textSecondary),
-                              const SizedBox(width: 4),
-                              Text(
-                                _selectedCustomer!.phone!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(Iconsax.message, size: 12, color: Color(0xFF25D366)),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  // Credit Balance Badge
-                  if (_selectedCustomer!.creditBalance > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '₹${_selectedCustomer!.creditBalance.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.grey300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
             ),
-            // Credit Info Banner - Shows when customer has outstanding credit
-            if (_selectedCustomer!.hasOutstandingCredit) ...[
-              const SizedBox(height: 10),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 1),
+            onChanged: (value) => _searchCustomerByPhone(value),
+          ),
+          
+          // Customer Match Result
+          if (hasPhone) ...[
+            const SizedBox(height: 12),
+            
+            if (_matchedCustomer != null) ...[
+              // Existing customer found
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.2),
-                  ),
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Iconsax.tick_circle, size: 20, color: AppColors.success),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _matchedCustomer!.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Existing Customer',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Credit badge if outstanding
+                    if (_matchedCustomer!.creditBalance > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              '₹${_matchedCustomer!.creditBalance.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Due',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // New customer - show optional name field
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Iconsax.wallet_minus,
-                          size: 14,
-                          color: AppColors.error,
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(Iconsax.user_add, size: 16, color: AppColors.info),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 10),
                         Text(
-                          'Outstanding (Udhar)',
+                          'New Customer',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.error,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.info,
                           ),
                         ),
                       ],
                     ),
-                    Text(
-                      '₹${_selectedCustomer!.creditBalance.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppColors.error,
+                    const SizedBox(height: 10),
+                    // Optional name input
+                    TextField(
+                      controller: _optionalNameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        hintText: 'Customer name (optional)',
+                        hintStyle: TextStyle(fontSize: 13, color: AppColors.grey400),
+                        prefixIcon: Icon(Iconsax.user, size: 18, color: AppColors.grey400),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppColors.grey200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppColors.grey200),
+                        ),
                       ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Bill will be saved with this mobile number',
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
               ),
             ],
-          ] else if (_selectedCustomer != null && _selectedCustomer!.id == 'walk-in') ...[
-            // Walk-in customer selected - show with phone field
+          ] else ...[
+            // Hint when no phone entered
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.grey300),
+                color: AppColors.warning.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.grey200,
-                        child: Icon(Iconsax.profile_circle, size: 22, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Walk-in Customer',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() {
-                          _selectedCustomer = null;
-                          _walkInPhoneController.clear();
-                        }),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 0),
-                        ),
-                        child: const Text('Change'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  // Phone number field for walk-in
-                  TextField(
-                    controller: _walkInPhoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      hintText: 'WhatsApp Number (optional)',
-                      hintStyle: TextStyle(fontSize: 13, color: AppColors.grey400),
-                      prefixIcon: Icon(Iconsax.call, size: 18, color: AppColors.grey400),
-                      suffixIcon: Icon(Iconsax.message, size: 18, color: Color(0xFF25D366)),
-                      filled: true,
-                      fillColor: AppColors.grey50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.grey200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: AppColors.grey200),
+                  Icon(Iconsax.info_circle, size: 16, color: AppColors.warning),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Enter mobile number to generate bill',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.warning.withValues(alpha: 0.8),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter phone to send bill via WhatsApp',
-                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                   ),
                 ],
               ),
-            ),
-          ] else ...[
-            // Customer search/select
-            Column(
-              children: [
-                TextField(
-                  controller: _customerSearchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search customer by name or phone...',
-                    hintStyle: TextStyle(fontSize: 13, color: AppColors.grey400),
-                    prefixIcon: Icon(Iconsax.search_normal, size: 18, color: AppColors.grey400),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.grey200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.grey200),
-                    ),
-                  ),
-                  onChanged: (value) => setState(() {}),
-                ),
-                const SizedBox(height: 8),
-                
-                // Customer suggestions
-                if (_customerSearchController.text.isNotEmpty)
-                  customersAsync.when(
-                    data: (customers) {
-                      final filtered = customers.where((c) =>
-                        c.name.toLowerCase().contains(_customerSearchController.text.toLowerCase()) ||
-                        (c.phone?.contains(_customerSearchController.text) ?? false)
-                      ).take(4).toList();
-                      
-                      if (filtered.isEmpty) {
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Iconsax.info_circle, size: 16, color: AppColors.textSecondary),
-                              const SizedBox(width: 8),
-                              const Text('No customers found'),
-                              const Spacer(),
-                              TextButton.icon(
-                                onPressed: () => _showAddCustomerDialog(_customerSearchController.text),
-                                icon: const Icon(Iconsax.add, size: 16),
-                                label: const Text('Add New'),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: const Size(0, 0),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.grey200),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: filtered.map((customer) => ListTile(
-                            dense: true,
-                            leading: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: AppColors.grey100,
-                              child: Text(
-                                customer.name[0].toUpperCase(),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            title: Text(customer.name, style: const TextStyle(fontSize: 13)),
-                            subtitle: customer.phone != null 
-                              ? Text(customer.phone!, style: const TextStyle(fontSize: 11))
-                              : null,
-                            trailing: customer.phone != null
-                              ? Icon(Iconsax.message, size: 16, color: Color(0xFF25D366))
-                              : null,
-                            onTap: () {
-                              setState(() {
-                                _selectedCustomer = customer;
-                                _customerSearchController.clear();
-                              });
-                            },
-                          )).toList(),
-                        ),
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                    error: (error, stackTrace) => const SizedBox(),
-                  ),
-                
-                // Walk-in AND Add New Customer options
-                if (_customerSearchController.text.isEmpty)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => setState(() => _selectedCustomer = Customer.walkInCustomer),
-                          icon: const Icon(Iconsax.profile_circle, size: 16),
-                          label: const Text('Walk-in'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textSecondary,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _showAddCustomerDialog(''),
-                          icon: const Icon(Iconsax.user_add, size: 16),
-                          label: const Text('Add New'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
             ),
           ],
         ],
       ),
     );
+  }
+  
+  /// Search for customer by phone number
+  void _searchCustomerByPhone(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    if (cleanPhone.length < 10) {
+      setState(() {
+        _matchedCustomer = null;
+      });
+      return;
+    }
+    
+    setState(() => _isSearching = true);
+    
+    // Search in cached customers first
+    final customersAsync = ref.read(customersNotifierProvider);
+    customersAsync.whenData((customers) {
+      Customer? match;
+      try {
+        match = customers.firstWhere(
+          (c) => c.phone?.replaceAll(RegExp(r'[^0-9]'), '') == cleanPhone,
+        );
+      } catch (e) {
+        match = null;
+      }
+      
+      if (mounted) {
+        setState(() {
+          _matchedCustomer = match;
+          _selectedCustomer = match;
+          _isSearching = false;
+        });
+      }
+    });
   }
 
   void _showAddCustomerDialog(String initialName) {
@@ -972,7 +927,8 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
               
               setState(() {
                 _selectedCustomer = newCustomer;
-                _customerSearchController.clear();
+                _matchedCustomer = newCustomer;
+                _phoneController.text = newCustomer.phone ?? '';
               });
               
               if (ctx.mounted) Navigator.pop(ctx);
@@ -1068,6 +1024,18 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   }
 
   Future<void> _processPayment() async {
+    // Validate phone number first
+    final cleanPhone = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter a valid 10-digit mobile number'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     try {
@@ -1101,13 +1069,54 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
         actualPaidAmount = _paidAmount;
       }
 
+      // Determine customer info based on phone-first flow
+      String? customerId;
+      String? customerName;
+      String? customerPhone = cleanPhone;
+      
+      if (_matchedCustomer != null) {
+        // Existing customer matched by phone
+        customerId = _matchedCustomer!.id;
+        customerName = _matchedCustomer!.name;
+        customerPhone = _matchedCustomer!.phone;
+      } else {
+        // New phone - AUTO CREATE customer in database
+        final newCustomerName = _optionalNameController.text.trim().isNotEmpty 
+            ? _optionalNameController.text.trim() 
+            : cleanPhone; // Use phone as name if no name provided
+        
+        try {
+          // Create new customer with phone
+          final newCustomer = Customer(
+            name: newCustomerName,
+            phone: cleanPhone,
+          );
+          
+          // Save to database
+          await ref.read(customersNotifierProvider.notifier).addCustomer(newCustomer);
+          
+          // Use the new customer's ID
+          customerId = newCustomer.id;
+          customerName = newCustomer.name;
+          customerPhone = newCustomer.phone;
+          
+          debugPrint('Auto-created customer: $customerName with ID: $customerId');
+        } catch (e) {
+          debugPrint('Failed to auto-create customer: $e');
+          // Fallback: proceed without customer ID
+          customerId = null;
+          customerName = newCustomerName;
+        }
+      }
+
       // Create order with notes and discount
       final order = Order(
         orderNumber: 'ORD${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
         employeeId: currentUser?.id,
         employeeName: currentUser?.name ?? 'Staff',
-        customerId: _selectedCustomer?.id != 'walk-in' ? _selectedCustomer?.id : null,
-        customerName: _selectedCustomer?.id != 'walk-in' ? _selectedCustomer?.name : null,
+        customerId: customerId,
+        customerName: customerName,
+        customerPhone: customerPhone,
         items: orderItems,
         subtotal: widget.cart.subtotal,
         taxAmount: widget.cart.taxAmount,
@@ -1120,12 +1129,12 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
       );
 
-      // Add credit to ledger if applicable
-      if (creditAmount > 0 && _selectedCustomer != null && _selectedCustomer!.id != 'walk-in') {
+      // Add credit to ledger if applicable (only for matched existing customers)
+      if (creditAmount > 0 && _matchedCustomer != null) {
         try {
           final customerRepo = CustomerRepository();
           await customerRepo.addCredit(
-            customerId: _selectedCustomer!.id,
+            customerId: _matchedCustomer!.id,
             amount: creditAmount,
             orderId: order.id,
             notes: 'Order #${order.orderNumber}${_isPartialPayment ? " (Partial Payment)" : ""}',

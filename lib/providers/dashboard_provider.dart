@@ -76,36 +76,29 @@ final dashboardStatsProvider = FutureProvider.autoDispose<DashboardStats>((ref) 
     final days = _getDaysForRange(dateRange);
     final periodLabel = _getLabelForRange(dateRange);
     
-    // Debug logging removed for performance
+    // OPTIMIZATION: Run ALL queries in PARALLEL instead of sequential
+    final results = await Future.wait([
+      ref.watch(periodStatsProvider(days).future),           // [0] Period stats
+      ref.watch(productCountProvider.future),                // [1] Product count
+      ref.watch(lowStockProductsProvider.future),            // [2] Low stock
+      ref.watch(inventoryValueProvider.future),              // [3] Inventory value
+      ref.watch(customersProvider.future),                   // [4] Customers
+      ref.watch(salesByDateProvider(days).future),           // [5] Sales by date
+      ref.watch(topProductsProvider(5).future),              // [6] Top products
+      ref.watch(customersWithCreditProvider.future),         // [7] Customers with credit
+      ref.watch(totalOutstandingCreditProvider.future),      // [8] Total credit
+    ]);
     
-    // Get stats for the selected period
-    final periodStats = await ref.watch(periodStatsProvider(days).future);
-
-    
-
-    // Get product stats (these don't change with date range)
-    final productCount = await ref.watch(productCountProvider.future);
-    final lowStockProducts = await ref.watch(lowStockProductsProvider.future);
-    final inventoryValue = await ref.watch(inventoryValueProvider.future);
-
-    
-
-    // Get customer count
-    final customers = await ref.watch(customersProvider.future);
-    final customerCount = customers.length;
-
-    
-    // Get sales by date for the selected range
-    final recentSales = await ref.watch(salesByDateProvider(days).future);
-    
-    // Get top products for the selected range
-    final topProducts = await ref.watch(topProductsProvider(5).future);
-    
-    // Get credit stats
-    final customersWithCredit = await ref.watch(customersWithCreditProvider.future);
-    final totalPendingCredit = await ref.watch(totalOutstandingCreditProvider.future);
-    
-
+    // Extract results with proper typing
+    final periodStats = results[0] as Map<String, dynamic>;
+    final productCount = results[1] as int;
+    final lowStockProducts = results[2] as List;
+    final inventoryValue = results[3] as double;
+    final customers = results[4] as List;
+    final recentSales = results[5] as List<Map<String, dynamic>>;
+    final topProducts = results[6] as List<Map<String, dynamic>>;
+    final customersWithCredit = results[7] as List;
+    final totalPendingCredit = results[8] as double;
 
     return DashboardStats(
       periodSales: (periodStats['totalSales'] as num?)?.toDouble() ?? 0.0,
@@ -113,7 +106,7 @@ final dashboardStatsProvider = FutureProvider.autoDispose<DashboardStats>((ref) 
       averageOrderValue: (periodStats['averageOrder'] as num?)?.toDouble() ?? 0.0,
       totalProducts: productCount,
       lowStockCount: lowStockProducts.length,
-      totalCustomers: customerCount,
+      totalCustomers: customers.length,
       inventoryValue: inventoryValue,
       recentSales: recentSales,
       topProducts: topProducts,

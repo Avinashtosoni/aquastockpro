@@ -697,8 +697,8 @@ class _POSScreenState extends ConsumerState<POSScreen> with SingleTickerProvider
         }
       }
 
-      // Update customer stats if customer is linked
-      if (order.customerId != null && order.customerId!.isNotEmpty) {
+      // Update customer stats if customer is linked (skip walk-in)
+      if (order.customerId != null && order.customerId!.isNotEmpty && order.customerId != 'walk-in') {
         try {
           final customerRepo = ref.read(customerRepositoryProvider);
           await customerRepo.updatePurchaseStats(

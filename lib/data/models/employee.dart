@@ -14,6 +14,8 @@ class Employee {
   final double? salary;
   final String? address;
   final String? emergencyContact;
+  final List<String>? permissionOverrides; // Granted permissions beyond role
+  final List<String>? permissionDenials; // Denied permissions from role
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,6 +31,8 @@ class Employee {
     this.salary,
     this.address,
     this.emergencyContact,
+    this.permissionOverrides,
+    this.permissionDenials,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
@@ -70,6 +74,8 @@ class Employee {
     double? salary,
     String? address,
     String? emergencyContact,
+    List<String>? permissionOverrides,
+    List<String>? permissionDenials,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -85,13 +91,15 @@ class Employee {
       salary: salary ?? this.salary,
       address: address ?? this.address,
       emergencyContact: emergencyContact ?? this.emergencyContact,
+      permissionOverrides: permissionOverrides ?? this.permissionOverrides,
+      permissionDenials: permissionDenials ?? this.permissionDenials,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'id': id,
       'name': name,
       'phone': phone,
@@ -106,6 +114,17 @@ class Employee {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+    
+    // Only include permission fields if they have values
+    // This prevents errors if database columns don't exist yet
+    if (permissionOverrides != null && permissionOverrides!.isNotEmpty) {
+      map['permission_overrides'] = permissionOverrides;
+    }
+    if (permissionDenials != null && permissionDenials!.isNotEmpty) {
+      map['permission_denials'] = permissionDenials;
+    }
+    
+    return map;
   }
 
   factory Employee.fromMap(Map<String, dynamic> map) {
@@ -124,6 +143,12 @@ class Employee {
       salary: (map['salary'] as num?)?.toDouble(),
       address: map['address'] as String?,
       emergencyContact: map['emergency_contact'] as String?,
+      permissionOverrides: map['permission_overrides'] != null
+          ? List<String>.from(map['permission_overrides'])
+          : null,
+      permissionDenials: map['permission_denials'] != null
+          ? List<String>.from(map['permission_denials'])
+          : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

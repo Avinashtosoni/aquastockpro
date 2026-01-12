@@ -88,10 +88,17 @@ class OrderRepository {
   Future<Order> insert(Order order) async {
     _checkConnection();
     
+    // Get order map and defensively remove invalid customer_id
+    final orderMap = order.toMap();
+    final customerId = orderMap['customer_id'];
+    if (customerId == null || customerId == '' || customerId == 'walk-in') {
+      orderMap.remove('customer_id'); // Ensure no invalid FK is sent
+    }
+    
     // Insert order
     await SupabaseService.client
         .from(SupabaseConfig.ordersTable)
-        .insert(order.toMap());
+        .insert(orderMap);
     
     // Insert order items with correct orderId
     for (final item in order.items) {

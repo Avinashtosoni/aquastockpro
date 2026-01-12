@@ -34,6 +34,7 @@ class SupabaseConfig {
   static const String creditTransactionsTable = 'credit_transactions';
   static const String quotationsTable = 'quotations';
   static const String quotationItemsTable = 'quotation_items';
+  static const String rolePermissionsTable = 'role_permissions';
 
   // Storage Buckets
   static const String productImagesBucket = 'product-images';

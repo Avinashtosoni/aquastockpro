@@ -25,6 +25,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   PaymentMethod? _paymentFilter;
   DateTimeRange? _dateRange;
   String _quickFilter = 'all'; // 'all', 'today', 'week', 'month'
+  
+  // Pagination
+  static const int _pageSize = 20;
+  int _displayCount = 20; // Initially show 20 orders
 
   final _currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
   final _dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
@@ -48,6 +52,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         data: (allOrders) {
           final filtered = _filterOrders(allOrders);
           final stats = _calculateStats(allOrders);
+          
+          // Paginated list - show only _displayCount items
+          final paginatedOrders = filtered.take(_displayCount).toList();
+          final hasMore = filtered.length > _displayCount;
 
           return RefreshIndicator(
             onRefresh: () async => ref.refresh(ordersNotifierProvider),
@@ -206,13 +214,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       subtitle: 'Try adjusting your filters',
                     ),
                   )
-                else
+                else ...[
+                  if (!isMobile) const SliverToBoxAdapter(child: _TableHeader()),
                   SliverPadding(
                     padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final order = filtered[index];
+                          final order = paginatedOrders[index];
                           return _OrderCard(
                             order: order,
                             currencyFormat: _currencyFormat,
@@ -220,10 +229,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             onTap: () => _showOrderDetails(order),
                           );
                         },
-                        childCount: filtered.length,
+                        childCount: paginatedOrders.length,
                       ),
                     ),
                   ),
+                  
+                  // Load More Button
+                  if (hasMore)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        child: Center(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _displayCount += _pageSize;
+                              });
+                            },
+                            icon: const Icon(Iconsax.arrow_down_1),
+                            label: Text('Load More (${filtered.length - paginatedOrders.length} remaining)'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
                 
                 // Bottom padding
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -375,6 +407,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     setState(() {
       _quickFilter = filter;
       _dateRange = null; // Clear custom date range when using quick filter
+      _displayCount = _pageSize; // Reset pagination
     });
   }
 
@@ -389,6 +422,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       setState(() {
         _dateRange = picked;
         _quickFilter = 'all'; // Clear quick filter when using custom date
+        _displayCount = _pageSize; // Reset pagination
       });
     }
   }
@@ -646,6 +680,27 @@ class _FilterDropdown<T> extends StatelessWidget {
   }
 }
 
+class _TableHeader extends StatelessWidget {
+  const _TableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: const [
+          Expanded(flex: 2, child: Text('Order No', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+          Expanded(flex: 3, child: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+          Expanded(flex: 2, child: Text('Mobile', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+          Expanded(flex: 2, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+          Expanded(flex: 2, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+          Expanded(flex: 1, child: Text('Action', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary))),
+        ],
+      ),
+    );
+  }
+}
+
 class _OrderCard extends StatelessWidget {
   final Order order;
   final NumberFormat currencyFormat;
@@ -664,87 +719,150 @@ class _OrderCard extends StatelessWidget {
     final isDark = context.isDarkMode;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: isDark ? Border.all(color: AppColors.darkCardBorder) : null,
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.grey200),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               children: [
-                // Order Icon
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(order.status).withValues(alpha: isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Iconsax.receipt_item,
-                    color: _getStatusColor(order.status),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Order Info
+                // 1. Order Number
                 Expanded(
+                  flex: 2,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            order.orderNumber,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: isDark ? AppColors.darkTextPrimary : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _PaymentIcon(method: order.paymentMethod),
-                        ],
+                      Text(
+                        order.orderNumber,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${order.itemCount} items • ${dateFormat.format(order.createdAt)}',
-                        style: TextStyle(
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
-                          fontSize: 12,
+                        dateFormat.format(order.createdAt),
+                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // 2. Customer Name
+                Expanded(
+                  flex: 3,
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        child: Text(
+                          (order.customerName?.isNotEmpty ?? false) ? order.customerName![0].toUpperCase() : 'W',
+                          style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          order.customerName ?? 'Walk-in Customer',
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Amount and Status
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      currencyFormat.format(order.totalAmount),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? AppColors.primaryLight : AppColors.primary,
+                
+                // 3. Mobile Number
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    order.customerPhone ?? '-',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ),
+                
+                // 4. Bill Amount
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    currencyFormat.format(order.totalAmount),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ),
+                
+                // 5. Bill Status
+                Expanded(
+                  flex: 2,
+                  child: Row(
+                    children: [
+                      _StatusChip(status: order.status),
+                    ],
+                  ),
+                ),
+                
+                // 6. Action Options
+                Expanded(
+                  flex: 1,
+                  child: PopupMenuButton<String>(
+                    icon: const Icon(Iconsax.more, size: 20, color: AppColors.textSecondary),
+                    onSelected: (value) {
+                      if (value == 'view') onTap();
+                      // Add other actions handling here
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'view',
+                        child: Row(
+                          children: [
+                             Icon(Iconsax.eye, size: 18),
+                             SizedBox(width: 8),
+                             Text('View Details'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    _StatusChip(status: order.status),
-                  ],
+                      const PopupMenuItem(
+                        value: 'print',
+                        child: Row(
+                          children: [
+                             Icon(Iconsax.printer, size: 18),
+                             SizedBox(width: 8),
+                             Text('Print Bill'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                         value: 'download',
+                         child: Row(
+                           children: [
+                              Icon(Iconsax.document_download, size: 18),
+                              SizedBox(width: 8),
+                              Text('Invoice'),
+                           ],
+                         ),
+                       ),
+                       if (order.status == OrderStatus.completed)
+                       const PopupMenuItem(
+                         value: 'refund',
+                         child: Row(
+                           children: [
+                              Icon(Iconsax.undo, size: 18, color: AppColors.error),
+                              SizedBox(width: 8),
+                              Text('Refund', style: TextStyle(color: AppColors.error)),
+                           ],
+                         ),
+                       ),
+                    ],
+                  ),
                 ),
               ],
             ),

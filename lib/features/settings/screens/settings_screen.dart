@@ -7,12 +7,15 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../data/models/business_settings.dart';
+import '../../../data/models/permission.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/permissions_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../shell/screens/main_shell.dart';
+import '../widgets/role_permissions_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -164,6 +167,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     // Logo/Branding section
                     _LogoSection(settings: settings, ref: ref),
+                    // Roles & Permissions (Admin only)
+                    _RolesPermissionsSection(ref: ref),
                     // Account / Logout section
                     _LogoutSection(ref: ref),
                   ];
@@ -667,6 +672,157 @@ class _LogoSectionState extends ConsumerState<_LogoSection> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Roles & Permissions section (Admin only)
+class _RolesPermissionsSection extends ConsumerWidget {
+  final WidgetRef ref;
+  
+  const _RolesPermissionsSection({required this.ref});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasPermission = ref.watch(hasPermissionProvider(Permission.manageRolePermissions));
+    
+    // Only show for admins with manageRolePermissions permission
+    if (!hasPermission) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardBackground : AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? AppColors.darkShadowColor : AppColors.shadowColorLight,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showRolePermissionsDialog(context),
+          borderRadius: BorderRadius.circular(16),
+          hoverColor: AppColors.error.withValues(alpha: 0.03),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Iconsax.security_user, color: AppColors.error, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Roles & Permissions',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'ADMIN',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Manage what each role can access',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.grey100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Iconsax.arrow_right_3, size: 18, color: AppColors.error),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                // Role summary
+                _buildRoleSummary(context, isDark),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleSummary(BuildContext context, bool isDark) {
+    return Row(
+      children: [
+        _buildRoleChip('Admin', AppColors.error),
+        const SizedBox(width: 8),
+        _buildRoleChip('Manager', AppColors.warning),
+        const SizedBox(width: 8),
+        _buildRoleChip('Cashier', AppColors.info),
+      ],
+    );
+  }
+
+  Widget _buildRoleChip(String role, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        role,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  void _showRolePermissionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const RolePermissionsDialog(),
     );
   }
 }

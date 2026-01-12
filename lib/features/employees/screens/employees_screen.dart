@@ -10,7 +10,10 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_overlay.dart';
 import '../../../data/models/employee.dart';
+import '../../../data/models/permission.dart';
+import '../../../data/models/role_permissions.dart';
 import '../../../providers/employees_provider.dart';
+import '../../../providers/permissions_provider.dart';
 
 class EmployeesScreen extends ConsumerStatefulWidget {
   const EmployeesScreen({super.key});
@@ -337,7 +340,8 @@ class _EmployeeFormDialog extends ConsumerStatefulWidget {
   ConsumerState<_EmployeeFormDialog> createState() => _EmployeeFormDialogState();
 }
 
-class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
+class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
@@ -346,11 +350,17 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
   late final TextEditingController _salaryController;
   late final TextEditingController _addressController;
   late EmployeeRole _selectedRole;
+  late TabController _tabController;
   bool _isLoading = false;
+  
+  // Permission overrides
+  Set<Permission> _permissionOverrides = {};
+  Set<Permission> _permissionDenials = {};
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _nameController = TextEditingController(text: widget.employee?.name ?? '');
     _phoneController = TextEditingController(text: widget.employee?.phone ?? '');
     _emailController = TextEditingController(text: widget.employee?.email ?? '');
@@ -360,10 +370,19 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
     );
     _addressController = TextEditingController(text: widget.employee?.address ?? '');
     _selectedRole = widget.employee?.role ?? EmployeeRole.cashier;
+    
+    // Load existing permission overrides
+    if (widget.employee?.permissionOverrides != null) {
+      _permissionOverrides = permissionsFromNames(widget.employee!.permissionOverrides!);
+    }
+    if (widget.employee?.permissionDenials != null) {
+      _permissionDenials = permissionsFromNames(widget.employee!.permissionDenials!);
+    }
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -376,104 +395,342 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.employee != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasPermissionManagement = ref.watch(hasPermissionProvider(Permission.manageEmployeePermissions));
 
-    return AlertDialog(
-      title: Text(isEditing ? 'Edit Employee' : 'Add Employee'),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(
-                  label: 'Name *',
-                  controller: _nameController,
-                  validator: (v) => v?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Phone *',
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  validator: (v) => v?.isEmpty == true ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Email',
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'PIN (4-6 digits) *',
-                  controller: _pinController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (v.length < 4) return 'PIN must be at least 4 digits';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<EmployeeRole>(
-                  initialValue: _selectedRole,
-                  decoration: InputDecoration(
-                    labelText: 'Role',
-                    border: OutlineInputBorder(
+    return Dialog(
+      child: Container(
+        width: 500,
+        height: MediaQuery.of(context).size.height * 0.8,
+        constraints: const BoxConstraints(maxHeight: 700),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCardBackground : AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    child: Icon(
+                      isEditing ? Iconsax.user_edit : Iconsax.user_add,
+                      color: AppColors.primary,
+                    ),
                   ),
-                  items: EmployeeRole.values.map((role) {
-                    return DropdownMenuItem(
-                      value: role,
-                      child: Text(role.name[0].toUpperCase() + role.name.substring(1)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _selectedRole = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Salary (per month)',
-                  controller: _salaryController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  label: 'Address',
-                  controller: _addressController,
-                  maxLines: 2,
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      isEditing ? 'Edit Employee' : 'Add Employee',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-          ),
+
+            // Tab Bar (only show if has permission management)
+            if (hasPermissionManagement)
+              Container(
+                color: isDark ? AppColors.darkCardBackground : Colors.grey.shade100,
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  indicatorColor: AppColors.primary,
+                  tabs: const [
+                    Tab(text: 'Basic Info'),
+                    Tab(text: 'Permissions'),
+                  ],
+                ),
+              ),
+
+            // Content
+            Expanded(
+              child: hasPermissionManagement
+                  ? TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildBasicInfoTab(),
+                        _buildPermissionsTab(isDark),
+                      ],
+                    )
+                  : _buildBasicInfoTab(),
+            ),
+
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _save,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(isEditing ? 'Update' : 'Add'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Update' : 'Add'),
-        ),
-      ],
     );
+  }
+
+  Widget _buildBasicInfoTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(
+              label: 'Name *',
+              controller: _nameController,
+              validator: (v) => v?.isEmpty == true ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Phone *',
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              validator: (v) => v?.isEmpty == true ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Email',
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'PIN (4-6 digits) *',
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Required';
+                if (v.length < 4) return 'PIN must be at least 4 digits';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<EmployeeRole>(
+              value: _selectedRole,
+              decoration: InputDecoration(
+                labelText: 'Role',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: EmployeeRole.values.map((role) {
+                return DropdownMenuItem(
+                  value: role,
+                  child: Text(role.name[0].toUpperCase() + role.name.substring(1)),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedRole = value;
+                    // Reset permission overrides when role changes
+                    _permissionOverrides.clear();
+                    _permissionDenials.clear();
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Salary (per month)',
+              controller: _salaryController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Address',
+              controller: _addressController,
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionsTab(bool isDark) {
+    final rolePerms = DefaultRolePermissions.getDefaultEmployeePermissions(_selectedRole);
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: allPermissionCategories.length,
+      itemBuilder: (context, index) {
+        final category = allPermissionCategories[index];
+        final categoryPerms = getPermissionsByCategory(category);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          color: isDark ? AppColors.darkCardBackground : Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: false,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(_getCategoryIcon(category), size: 20, color: AppColors.primary),
+              ),
+              title: Text(category, style: const TextStyle(fontWeight: FontWeight.w600)),
+              children: categoryPerms.map((perm) {
+                final isInRole = rolePerms.contains(perm);
+                final isOverridden = _permissionOverrides.contains(perm);
+                final isDenied = _permissionDenials.contains(perm);
+                
+                // Effective state: role default + override - denial
+                final isEnabled = (isInRole || isOverridden) && !isDenied;
+                
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 56, right: 16),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          perm.displayName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (isInRole && !isOverridden && !isDenied)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'FROM ROLE',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.success),
+                          ),
+                        ),
+                      if (isOverridden)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'GRANTED',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.info),
+                          ),
+                        ),
+                      if (isDenied)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'DENIED',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.error),
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: Switch(
+                    value: isEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        if (value) {
+                          // Enable permission
+                          _permissionDenials.remove(perm);
+                          if (!isInRole) {
+                            _permissionOverrides.add(perm);
+                          }
+                        } else {
+                          // Disable permission
+                          _permissionOverrides.remove(perm);
+                          if (isInRole) {
+                            _permissionDenials.add(perm);
+                          }
+                        }
+                      });
+                    },
+                    activeColor: AppColors.primary,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Dashboard': return Iconsax.home;
+      case 'POS': return Iconsax.calculator;
+      case 'Products': return Iconsax.box;
+      case 'Categories': return Iconsax.category;
+      case 'Orders': return Iconsax.receipt;
+      case 'Customers': return Iconsax.people;
+      case 'Payments': return Iconsax.wallet_money;
+      case 'Quotations': return Iconsax.document_text;
+      case 'Employees': return Iconsax.user_octagon;
+      case 'Suppliers': return Iconsax.truck_fast;
+      case 'Reports': return Iconsax.chart;
+      case 'Settings': return Iconsax.setting;
+      default: return Iconsax.more;
+    }
   }
 
   Future<void> _save() async {
@@ -493,6 +750,12 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog> {
         address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
         joinDate: widget.employee?.joinDate ?? DateTime.now(),
         isActive: widget.employee?.isActive ?? true,
+        permissionOverrides: _permissionOverrides.isNotEmpty
+            ? permissionsToNames(_permissionOverrides)
+            : null,
+        permissionDenials: _permissionDenials.isNotEmpty
+            ? permissionsToNames(_permissionDenials)
+            : null,
       );
 
       if (widget.employee != null) {
