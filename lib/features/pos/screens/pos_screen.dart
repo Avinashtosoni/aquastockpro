@@ -18,6 +18,7 @@ import '../../../providers/cart_provider.dart';
 import '../../../providers/orders_provider.dart';
 import '../../../providers/dashboard_provider.dart';
 import '../../../providers/customers_provider.dart';
+import '../../../providers/settings_provider.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/cart_panel.dart';
 import '../widgets/category_sidebar.dart';
@@ -48,6 +49,11 @@ class _POSScreenState extends ConsumerState<POSScreen> with SingleTickerProvider
     _fabScaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _fabAnimController, curve: Curves.elasticOut),
     );
+    
+    // Set cart's default tax rate from settings (for products with 0% GST)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeTaxRateFromSettings();
+    });
   }
 
   @override
@@ -55,6 +61,15 @@ class _POSScreenState extends ConsumerState<POSScreen> with SingleTickerProvider
     _searchController.dispose();
     _fabAnimController.dispose();
     super.dispose();
+  }
+
+  /// Initialize cart's default tax rate from business settings
+  /// This rate is used as fallback for products with gstRate = 0
+  void _initializeTaxRateFromSettings() {
+    final settingsAsync = ref.read(settingsNotifierProvider);
+    settingsAsync.whenData((settings) {
+      ref.read(cartProvider.notifier).setTaxRate(settings.taxRate);
+    });
   }
 
   @override

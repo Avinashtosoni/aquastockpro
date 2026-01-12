@@ -27,6 +27,17 @@ class CartItem {
 
   double get subtotal => product.price * quantity;
   double get total => subtotal - discount;
+  
+  /// Returns effective GST rate: product's GST if set (>0), otherwise defaultRate from settings
+  double effectiveGstRate(double defaultRate) {
+    return product.gstRate > 0 ? product.gstRate : defaultRate;
+  }
+  
+  /// Calculate tax amount for this item using effective GST rate
+  double taxAmount(double defaultRate) {
+    final rate = effectiveGstRate(defaultRate);
+    return (subtotal - discount) * (rate / 100);
+  }
 }
 
 class CartState {
@@ -34,7 +45,7 @@ class CartState {
   final String? customerId;
   final String? customerName;
   final double discountAmount;
-  final double taxRate;
+  final double taxRate; // Default tax rate from settings (fallback for products with 0% GST)
   final String? notes;
   final bool isOnHold;
 
@@ -78,7 +89,22 @@ class CartState {
   
   double get taxableAmount => subtotal - totalDiscount;
   
-  double get taxAmount => taxableAmount * (taxRate / 100);
+  /// Calculate total tax using per-product GST rates
+  /// For products with gstRate > 0, use product's rate
+  /// For products with gstRate = 0, use the default taxRate from settings
+  double get taxAmount {
+    // Calculate per-product tax with effective GST rates
+    double totalTax = 0;
+    for (final item in items) {
+      totalTax += item.taxAmount(taxRate);
+    }
+    // Apply discount proportionally (discount reduces taxable amount)
+    if (discountAmount > 0 && subtotal > 0) {
+      final discountRatio = discountAmount / subtotal;
+      totalTax = totalTax * (1 - discountRatio);
+    }
+    return totalTax;
+  }
   
   double get total => taxableAmount + taxAmount;
 
@@ -93,7 +119,7 @@ class CartState {
       unitPrice: item.product.price,
       quantity: item.quantity,
       discount: item.discount,
-      taxRate: taxRate,
+      taxRate: item.effectiveGstRate(taxRate), // Use product's GST or default
     )).toList();
   }
 }

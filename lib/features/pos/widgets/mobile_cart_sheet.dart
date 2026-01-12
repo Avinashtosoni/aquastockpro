@@ -167,10 +167,17 @@ class MobileCartSheet extends ConsumerWidget {
                             value: '-${currencyFormat.format(cart.totalDiscount)}',
                             valueColor: AppColors.success,
                           ),
-                        _SummaryRow(
-                          label: 'Tax (${cart.taxRate}%)',
-                          value: currencyFormat.format(cart.taxAmount),
-                        ),
+                        // CGST and SGST breakdown
+                        if (cart.taxAmount > 0) ...[
+                          _SummaryRow(
+                            label: 'CGST',
+                            value: currencyFormat.format(cart.taxAmount / 2),
+                          ),
+                          _SummaryRow(
+                            label: 'SGST',
+                            value: currencyFormat.format(cart.taxAmount / 2),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

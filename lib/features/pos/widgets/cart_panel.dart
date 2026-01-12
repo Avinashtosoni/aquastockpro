@@ -192,13 +192,22 @@ class _CartPanelState extends ConsumerState<CartPanel> {
                     value: currencyFormat.format(widget.cart.subtotal),
                     isDark: isDark,
                   ),
-                  const SizedBox(height: 8),
-                  // Tax (GST)
-                  _SummaryRow(
-                    label: 'Tax (GST)',
-                    value: currencyFormat.format(widget.cart.taxAmount),
-                    isDark: isDark,
-                  ),
+                  const SizedBox(height: 6),
+                  // CGST (half of total tax)
+                  if (widget.cart.taxAmount > 0) ...[
+                    _SummaryRow(
+                      label: 'CGST',
+                      value: currencyFormat.format(widget.cart.taxAmount / 2),
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 4),
+                    // SGST (half of total tax)
+                    _SummaryRow(
+                      label: 'SGST',
+                      value: currencyFormat.format(widget.cart.taxAmount / 2),
+                      isDark: isDark,
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   // Bill Discount Input
                   _BillDiscountRow(

@@ -1071,15 +1071,15 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
     setState(() => _isProcessing = true);
 
     try {
-      // Create order items
+      // Create order items with per-product GST rates
       final orderItems = widget.cart.items.map((ci) => OrderItem(
         orderId: '', // Will be set when saving
         productId: ci.product.id,
         productName: ci.product.name,
         quantity: ci.quantity,
         unitPrice: ci.product.price,
-        discount: 0,
-        taxRate: 5,
+        discount: ci.discount,
+        taxRate: ci.effectiveGstRate(widget.cart.taxRate), // Use product's GST or fallback to cart's default
       )).toList();
 
       // Get current user for employee info

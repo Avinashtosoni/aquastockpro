@@ -177,23 +177,25 @@ class PdfInvoiceService {
             
             pw.Divider(thickness: 0.5),
             
-            // Items header
+            // Items header with GST column
             pw.Row(
               children: [
                 pw.Expanded(flex: 3, child: pw.Text('Item', style: boldStyle)),
                 pw.Expanded(child: pw.Text('Qty', style: boldStyle, textAlign: pw.TextAlign.center)),
+                pw.Expanded(child: pw.Text('GST%', style: boldStyle, textAlign: pw.TextAlign.center)),
                 pw.Expanded(flex: 2, child: pw.Text('Price', style: boldStyle, textAlign: pw.TextAlign.right)),
               ],
             ),
             pw.Divider(thickness: 0.3),
             
-            // Items
+            // Items with GST% column
             ...items.map((item) => pw.Padding(
               padding: const pw.EdgeInsets.symmetric(vertical: 2),
               child: pw.Row(
                 children: [
                   pw.Expanded(flex: 3, child: pw.Text(item.productName, style: baseStyle)),
                   pw.Expanded(child: pw.Text('${item.quantity}', style: baseStyle, textAlign: pw.TextAlign.center)),
+                  pw.Expanded(child: pw.Text('${item.taxRate.toStringAsFixed(0)}%', style: baseStyle, textAlign: pw.TextAlign.center)),
                   pw.Expanded(flex: 2, child: pw.Text(_formatCurrency(item.total), style: baseStyle, textAlign: pw.TextAlign.right)),
                 ],
               ),
@@ -201,12 +203,15 @@ class PdfInvoiceService {
             
             pw.Divider(thickness: 0.5),
             
-            // Totals
+            // Totals with CGST/SGST breakdown
             _buildTotalRow('Subtotal', order.subtotal, baseStyle),
             if (order.discountAmount > 0)
               _buildTotalRow('Discount', -order.discountAmount, baseStyle),
-            if (order.taxAmount > 0)
-              _buildTotalRow('Tax (${settings.taxRate}%)', order.taxAmount, baseStyle),
+            // GST breakdown - CGST and SGST (half each for intrastate)
+            if (order.taxAmount > 0) ...[
+              _buildTotalRow('CGST', order.taxAmount / 2, baseStyle),
+              _buildTotalRow('SGST', order.taxAmount / 2, baseStyle),
+            ],
             
             pw.Divider(thickness: 1),
             
@@ -531,15 +536,20 @@ class PdfInvoiceService {
             
             pw.SizedBox(height: 20),
             
-            // ============ ITEMS TABLE ============
+            // ============ ITEMS TABLE WITH GST DETAILS ============
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               columnWidths: {
-                0: const pw.FixedColumnWidth(35),
-                1: const pw.FlexColumnWidth(4),
-                2: const pw.FixedColumnWidth(50),
-                3: const pw.FixedColumnWidth(85),
-                4: const pw.FixedColumnWidth(85),
+                0: const pw.FixedColumnWidth(30),  // S.No
+                1: const pw.FlexColumnWidth(3),    // Item Description
+                2: const pw.FixedColumnWidth(50),  // HSN
+                3: const pw.FixedColumnWidth(35),  // Qty
+                4: const pw.FixedColumnWidth(65),  // Rate
+                5: const pw.FixedColumnWidth(40),  // GST%
+                6: const pw.FixedColumnWidth(65),  // Taxable
+                7: const pw.FixedColumnWidth(50),  // CGST
+                8: const pw.FixedColumnWidth(50),  // SGST
+                9: const pw.FixedColumnWidth(70),  // Amount
               },
               children: [
                 // Header row
@@ -548,24 +558,42 @@ class PdfInvoiceService {
                   children: [
                     _tableHeader('S.No', headerStyle),
                     _tableHeader('Item Description', headerStyle),
+                    _tableHeader('HSN', headerStyle),
                     _tableHeader('Qty', headerStyle),
-                    _tableHeader('Unit Price', headerStyle),
+                    _tableHeader('Rate', headerStyle),
+                    _tableHeader('GST%', headerStyle),
+                    _tableHeader('Taxable', headerStyle),
+                    _tableHeader('CGST', headerStyle),
+                    _tableHeader('SGST', headerStyle),
                     _tableHeader('Amount', headerStyle),
                   ],
                 ),
-                // Item rows
-                ...items.asMap().entries.map((entry) => pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    color: entry.key.isEven ? PdfColors.white : PdfColors.grey50,
-                  ),
-                  children: [
-                    _tableCell('${entry.key + 1}', baseStyle),
-                    _tableCell(entry.value.productName, baseStyle, align: pw.TextAlign.left),
-                    _tableCell('${entry.value.quantity}', baseStyle),
-                    _tableCell(_formatCurrency(entry.value.unitPrice), baseStyle),
-                    _tableCell(_formatCurrency(entry.value.total), baseStyle),
-                  ],
-                )),
+                // Item rows with GST details
+                ...items.asMap().entries.map((entry) {
+                  final item = entry.value;
+                  final taxableValue = item.subtotal - item.discount;
+                  final itemCgst = taxableValue * (item.taxRate / 2 / 100);
+                  final itemSgst = taxableValue * (item.taxRate / 2 / 100);
+                  final totalWithTax = taxableValue + itemCgst + itemSgst;
+                  
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      color: entry.key.isEven ? PdfColors.white : PdfColors.grey50,
+                    ),
+                    children: [
+                      _tableCell('${entry.key + 1}', baseStyle),
+                      _tableCell(item.productName, baseStyle, align: pw.TextAlign.left),
+                      _tableCell('9999', baseStyle), // Default HSN code
+                      _tableCell('${item.quantity}', baseStyle),
+                      _tableCell(_formatCurrency(item.unitPrice), baseStyle),
+                      _tableCell('${item.taxRate.toStringAsFixed(0)}%', baseStyle),
+                      _tableCell(_formatCurrency(taxableValue), baseStyle),
+                      _tableCell(_formatCurrency(itemCgst), baseStyle),
+                      _tableCell(_formatCurrency(itemSgst), baseStyle),
+                      _tableCell(_formatCurrency(totalWithTax), baseStyle),
+                    ],
+                  );
+                }),
               ],
             ),
             
@@ -596,7 +624,7 @@ class PdfInvoiceService {
                   ),
                 ),
                 pw.SizedBox(width: 20),
-                // Summary on right
+                // Summary on right with CGST/SGST breakdown
                 pw.Container(
                   width: 220,
                   child: pw.Column(
@@ -604,7 +632,11 @@ class PdfInvoiceService {
                       _summaryRow('Subtotal', _formatCurrency(order.subtotal), baseStyle, boldStyle),
                       if (order.discountAmount > 0)
                         _summaryRow('Discount', '-${_formatCurrency(order.discountAmount)}', baseStyle, boldStyle, isDiscount: true),
-                      _summaryRow('Tax (${settings.taxRate}%)', _formatCurrency(order.taxAmount), baseStyle, boldStyle),
+                      // CGST and SGST breakdown (half each for intrastate)
+                      if (order.taxAmount > 0) ...[
+                        _summaryRow('CGST', _formatCurrency(order.taxAmount / 2), baseStyle, boldStyle),
+                        _summaryRow('SGST', _formatCurrency(order.taxAmount / 2), baseStyle, boldStyle),
+                      ],
                       pw.Container(
                         margin: const pw.EdgeInsets.symmetric(vertical: 6),
                         child: pw.Divider(thickness: 1.5, color: accentColor),
