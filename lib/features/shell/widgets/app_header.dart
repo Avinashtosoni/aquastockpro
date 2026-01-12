@@ -9,6 +9,8 @@ import '../screens/main_shell.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/profile_screen.dart';
+import '../../products/screens/product_form_screen.dart';
+import '../../customers/widgets/add_customer_dialog.dart';
 
 class AppHeader extends ConsumerWidget {
   final bool showMenuButton;
@@ -219,7 +221,20 @@ class AppHeader extends ConsumerWidget {
             ],
           ),
           onTap: () {
-            // Navigate to add product
+            // Show add product dialog modal
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showDialog(
+                context: context,
+                builder: (context) => Dialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: const SizedBox(
+                    width: 550,
+                    height: 700,
+                    child: ProductFormScreen(),
+                  ),
+                ),
+              );
+            });
           },
         ),
         PopupMenuItem(
@@ -231,7 +246,13 @@ class AppHeader extends ConsumerWidget {
             ],
           ),
           onTap: () {
-            // Navigate to add customer
+            // Show add customer dialog
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showDialog(
+                context: context,
+                builder: (context) => const AddCustomerDialog(),
+              );
+            });
           },
         ),
         PopupMenuItem(
@@ -243,7 +264,12 @@ class AppHeader extends ConsumerWidget {
             ],
           ),
           onTap: () {
-            // Navigate to POS
+            // Navigate to POS screen
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Find the ProviderScope and update selectedNavItemProvider
+              final container = ProviderScope.containerOf(context);
+              container.read(selectedNavItemProvider.notifier).state = 'pos';
+            });
           },
         ),
         PopupMenuItem(
@@ -255,7 +281,11 @@ class AppHeader extends ConsumerWidget {
             ],
           ),
           onTap: () {
-            // Export report
+            // Navigate to Reports screen
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final container = ProviderScope.containerOf(context);
+              container.read(selectedNavItemProvider.notifier).state = 'reports';
+            });
           },
         ),
       ],
