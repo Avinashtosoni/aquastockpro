@@ -13,7 +13,6 @@ import '../../../providers/settings_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/permissions_provider.dart';
 import '../../../providers/theme_provider.dart';
-import '../../auth/screens/login_screen.dart';
 import '../../shell/screens/main_shell.dart';
 import '../../onboarding/screens/welcome_screen.dart';
 import '../widgets/role_permissions_dialog.dart';

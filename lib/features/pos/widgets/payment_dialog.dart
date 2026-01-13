@@ -403,7 +403,7 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                                         }
                                       });
                                     },
-                                    activeColor: AppColors.warning,
+                                    activeThumbColor: AppColors.warning,
                                   ),
                                 ],
                               ),

@@ -293,7 +293,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     data: (categories) {
                       final cats = categories as List<Category>;
                       return DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
+                        initialValue: _selectedCategoryId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -393,7 +393,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   Text('GST Rate (%)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isDark ? Colors.white70 : AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<double>(
-                    value: _selectedGstRate,
+                    initialValue: _selectedGstRate,
                     isExpanded: true,
                     decoration: InputDecoration(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -470,7 +470,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   Text('Unit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: isDark ? Colors.white70 : AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: _selectedUnit,
+                    initialValue: _selectedUnit,
                     isExpanded: true,
                     decoration: InputDecoration(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -513,7 +513,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ],
                 ),
               ),
-              Switch(value: _trackInventory, onChanged: (v) => setState(() => _trackInventory = v), activeColor: AppColors.primary),
+              Switch(value: _trackInventory, onChanged: (v) => setState(() => _trackInventory = v), activeThumbColor: AppColors.primary),
             ],
           ),
         ),
@@ -542,7 +542,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ],
                 ),
               ),
-              Switch(value: _isActive, onChanged: (v) => setState(() => _isActive = v), activeColor: AppColors.success),
+              Switch(value: _isActive, onChanged: (v) => setState(() => _isActive = v), activeThumbColor: AppColors.success),
             ],
           ),
         ),

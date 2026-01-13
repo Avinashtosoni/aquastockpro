@@ -304,6 +304,31 @@ class _SalesChartState extends State<_SalesChart> {
         ? 0.0 
         : widget.salesData.map((e) => (e['total_sales'] as num?)?.toDouble() ?? 0).reduce((a, b) => a > b ? a : b);
     
+    // Calculate actual trend (compare first half vs second half of period)
+    double trendPercentage = 0;
+    bool isPositiveTrend = true;
+    if (widget.salesData.length >= 2) {
+      final midPoint = widget.salesData.length ~/ 2;
+      final firstHalf = widget.salesData.sublist(0, midPoint);
+      final secondHalf = widget.salesData.sublist(midPoint);
+      
+      final firstHalfTotal = firstHalf.fold<double>(
+        0, (sum, item) => sum + ((item['total_sales'] as num?)?.toDouble() ?? 0),
+      );
+      final secondHalfTotal = secondHalf.fold<double>(
+        0, (sum, item) => sum + ((item['total_sales'] as num?)?.toDouble() ?? 0),
+      );
+      
+      if (firstHalfTotal > 0) {
+        trendPercentage = ((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100;
+        isPositiveTrend = trendPercentage >= 0;
+      }
+    }
+    
+    final trendColor = isPositiveTrend ? AppColors.success : AppColors.error;
+    final trendIcon = isPositiveTrend ? Icons.trending_up_rounded : Icons.trending_down_rounded;
+    final trendText = '${isPositiveTrend ? '+' : ''}${trendPercentage.toStringAsFixed(1)}%';
+    
     return AppCard(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       child: Column(
@@ -357,44 +382,45 @@ class _SalesChartState extends State<_SalesChart> {
                   ],
                 ],
               ),
-              // Trend indicator
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: widget.isMobile ? 10 : 14,
-                  vertical: widget.isMobile ? 6 : 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.success.withValues(alpha: 0.15),
-                      AppColors.success.withValues(alpha: 0.05),
+              // Trend indicator (calculated from data)
+              if (widget.salesData.length >= 2)
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: widget.isMobile ? 10 : 14,
+                    vertical: widget.isMobile ? 6 : 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        trendColor.withValues(alpha: 0.15),
+                        trendColor.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: trendColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        trendIcon,
+                        size: widget.isMobile ? 14 : 16,
+                        color: trendColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        trendText,
+                        style: TextStyle(
+                          fontSize: widget.isMobile ? 11 : 13,
+                          fontWeight: FontWeight.w600,
+                          color: trendColor,
+                        ),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.success.withValues(alpha: 0.3),
-                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.trending_up_rounded,
-                      size: widget.isMobile ? 14 : 16,
-                      color: AppColors.success,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '+15.3%',
-                      style: TextStyle(
-                        fontSize: widget.isMobile ? 11 : 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.success,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
           

@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../data/models/customer.dart';
-import '../../../data/models/business_settings.dart';
 import '../../../data/models/order.dart';
 import '../../../data/models/credit_transaction.dart';
 import '../../../data/repositories/customer_repository.dart';
@@ -26,7 +25,7 @@ class PaymentsScreen extends ConsumerStatefulWidget {
 class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  String _sortBy = 'amount';
+  final String _sortBy = 'amount';
   Customer? _selectedCustomer;
 
   final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);

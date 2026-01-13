@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../data/models/permission.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/permissions_provider.dart';
 import '../../../providers/products_provider.dart';
 import '../../../providers/categories_provider.dart';

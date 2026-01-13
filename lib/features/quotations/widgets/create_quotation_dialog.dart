@@ -141,7 +141,7 @@ class _CreateQuotationDialogState extends ConsumerState<CreateQuotationDialog> {
                       ),
                       child: customersAsync.when(
                         data: (customers) => DropdownButtonFormField<Customer>(
-                          value: _selectedCustomer,
+                          initialValue: _selectedCustomer,
                           hint: const Text('Select Customer (Optional)'),
                           isExpanded: true,
                           decoration: InputDecoration(

@@ -345,11 +345,11 @@ class _QuotationDetailsSheetState extends ConsumerState<QuotationDetailsSheet> {
         Expanded(
           child: OutlinedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
+            child: const Text('Close'),
           ),
         ),
       );

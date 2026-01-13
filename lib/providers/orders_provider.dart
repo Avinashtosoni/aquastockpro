@@ -122,3 +122,92 @@ class OrdersNotifier extends StateNotifier<AsyncValue<List<Order>>> {
 final ordersNotifierProvider = StateNotifierProvider<OrdersNotifier, AsyncValue<List<Order>>>((ref) {
   return OrdersNotifier(ref);
 });
+
+// Paginated orders state
+class PaginatedOrdersState {
+  final List<Order> orders;
+  final bool isLoading;
+  final bool hasMore;
+  final int currentPage;
+  final String? error;
+
+  const PaginatedOrdersState({
+    this.orders = const [],
+    this.isLoading = false,
+    this.hasMore = true,
+    this.currentPage = 0,
+    this.error,
+  });
+
+  PaginatedOrdersState copyWith({
+    List<Order>? orders,
+    bool? isLoading,
+    bool? hasMore,
+    int? currentPage,
+    String? error,
+  }) {
+    return PaginatedOrdersState(
+      orders: orders ?? this.orders,
+      isLoading: isLoading ?? this.isLoading,
+      hasMore: hasMore ?? this.hasMore,
+      currentPage: currentPage ?? this.currentPage,
+      error: error,
+    );
+  }
+}
+
+// Paginated orders notifier
+class PaginatedOrdersNotifier extends StateNotifier<PaginatedOrdersState> {
+  final Ref _ref;
+  static const int _pageSize = 20;
+
+  PaginatedOrdersNotifier(this._ref) : super(const PaginatedOrdersState()) {
+    loadInitial();
+  }
+
+  Future<void> loadInitial() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final orders = await _ref.read(orderRepositoryProvider).getAll(limit: _pageSize);
+      state = PaginatedOrdersState(
+        orders: orders,
+        isLoading: false,
+        hasMore: orders.length >= _pageSize,
+        currentPage: 1,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.isLoading || !state.hasMore) return;
+
+    state = state.copyWith(isLoading: true);
+    try {
+      final offset = state.orders.length;
+      final newOrders = await _ref.read(orderRepositoryProvider).getAll(
+        limit: _pageSize,
+        offset: offset,
+      );
+      
+      state = state.copyWith(
+        orders: [...state.orders, ...newOrders],
+        isLoading: false,
+        hasMore: newOrders.length >= _pageSize,
+        currentPage: state.currentPage + 1,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> refresh() async {
+    state = const PaginatedOrdersState();
+    await loadInitial();
+  }
+}
+
+final paginatedOrdersProvider = StateNotifierProvider<PaginatedOrdersNotifier, PaginatedOrdersState>((ref) {
+  return PaginatedOrdersNotifier(ref);
+});

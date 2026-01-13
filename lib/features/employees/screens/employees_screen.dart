@@ -551,7 +551,7 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog>
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<EmployeeRole>(
-              value: _selectedRole,
+              initialValue: _selectedRole,
               decoration: InputDecoration(
                 labelText: 'Role',
                 border: OutlineInputBorder(
@@ -704,7 +704,7 @@ class _EmployeeFormDialogState extends ConsumerState<_EmployeeFormDialog>
                         }
                       });
                     },
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                   ),
                 );
               }).toList(),

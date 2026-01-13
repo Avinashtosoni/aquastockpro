@@ -6,7 +6,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../data/services/connectivity_service.dart';
 import '../screens/main_shell.dart';
-import '../../auth/screens/login_screen.dart';
 import '../../onboarding/screens/welcome_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/profile_screen.dart';
