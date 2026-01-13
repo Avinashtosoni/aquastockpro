@@ -7,6 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../data/services/connectivity_service.dart';
 import '../screens/main_shell.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../onboarding/screens/welcome_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../products/screens/product_form_screen.dart';
@@ -506,14 +507,18 @@ class _UserProfileButton extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
+              final authNotifier = ref.read(authProvider.notifier);
               Navigator.pop(context); // Close dialog
-              await ref.read(authProvider.notifier).logout();
+              
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen(mode: LoginMode.full)),
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                   (route) => false,
                 );
+                
+                // Logout after navigation to prevent auto-redirects
+                authNotifier.logout();
               }
             },
             style: ElevatedButton.styleFrom(

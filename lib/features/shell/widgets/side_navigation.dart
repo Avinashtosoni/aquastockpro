@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../screens/main_shell.dart';
@@ -205,7 +204,7 @@ class _SideNavigationState extends State<SideNavigation> {
           ),
         ),
       ),
-    ).animate().fadeIn(delay: Duration(milliseconds: 50 * index));
+    );
   }
 
   Widget _buildCollapseButton() {

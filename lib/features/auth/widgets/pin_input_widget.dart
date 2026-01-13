@@ -109,73 +109,82 @@ class _PinInputWidgetState extends State<PinInputWidget>
                 child: child,
               );
             },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.pinLength, (index) {
-                final isFilled = index < pinValue.length;
-                final isActive = index == pinValue.length;
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate responsive box size
+                // Available width for boxes = total width - margins (10*2 per box * 4 boxes = 80)
+                final availableWidth = constraints.maxWidth - 80;
+                final boxSize = (availableWidth / 4).clamp(40.0, 56.0);
+                
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.pinLength, (index) {
+                    final isFilled = index < pinValue.length;
+                    final isActive = index == pinValue.length;
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: isFilled
-                          ? (widget.hasError
-                              ? AppColors.error.withValues(alpha: 0.1)
-                              : AppColors.primary.withValues(alpha: 0.1))
-                          : (isDark
-                              ? AppColors.darkSurfaceVariant
-                              : AppColors.grey100),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: widget.hasError
-                            ? AppColors.error
-                            : isActive
-                                ? AppColors.primary
-                                : (isFilled
-                                    ? AppColors.primary.withValues(alpha: 0.5)
-                                    : Colors.transparent),
-                        width: isActive ? 2 : 1,
-                      ),
-                      boxShadow: isActive
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.2),
-                                blurRadius: 8,
-                                spreadRadius: 0,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Center(
-                      child: isFilled
-                          ? Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: widget.hasError
-                                    ? AppColors.error
-                                    : AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            )
-                          : isActive && !widget.isLoading
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: boxSize,
+                        height: boxSize,
+                        decoration: BoxDecoration(
+                          color: isFilled
+                              ? (widget.hasError
+                                  ? AppColors.error.withValues(alpha: 0.1)
+                                  : AppColors.primary.withValues(alpha: 0.1))
+                              : (isDark
+                                  ? AppColors.darkSurfaceVariant
+                                  : AppColors.grey100),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: widget.hasError
+                                ? AppColors.error
+                                : isActive
+                                    ? AppColors.primary
+                                    : (isFilled
+                                        ? AppColors.primary.withValues(alpha: 0.5)
+                                        : Colors.transparent),
+                            width: isActive ? 2 : 1,
+                          ),
+                          boxShadow: isActive
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.2),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: isFilled
                               ? Container(
-                                  width: 2,
-                                  height: 24,
+                                  width: 14,
+                                  height: 14,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary,
-                                    borderRadius: BorderRadius.circular(1),
+                                    color: widget.hasError
+                                        ? AppColors.error
+                                        : AppColors.primary,
+                                    shape: BoxShape.circle,
                                   ),
                                 )
-                              : null,
-                    ),
-                  ),
+                              : isActive && !widget.isLoading
+                                  ? Container(
+                                      width: 2,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    )
+                                  : null,
+                        ),
+                      ),
+                    );
+                  }),
                 );
-              }),
+              },
             ),
           ),
         ),

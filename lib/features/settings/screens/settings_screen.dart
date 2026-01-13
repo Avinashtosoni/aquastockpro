@@ -15,6 +15,7 @@ import '../../../providers/permissions_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../shell/screens/main_shell.dart';
+import '../../onboarding/screens/welcome_screen.dart';
 import '../widgets/role_permissions_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -978,16 +979,20 @@ class _LogoutSection extends ConsumerWidget {
             label: 'Logout',
             variant: AppButtonVariant.danger,
             size: AppButtonSize.small,
-            onPressed: () async {
+            onPressed: () {
+              final authNotifier = ref.read(authProvider.notifier);
               Navigator.pop(context);
-              await ref.read(authProvider.notifier).logout();
+              
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(
-                    builder: (context) => const LoginScreen(mode: LoginMode.full),
+                    builder: (context) => const WelcomeScreen(),
                   ),
                   (route) => false,
                 );
+                
+                // Logout after navigation to prevent auto-redirects
+                authNotifier.logout();
               }
             },
           ),

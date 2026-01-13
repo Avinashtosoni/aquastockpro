@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/widgets/stats_card.dart';
 import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/loading_overlay.dart';
 import '../../../core/widgets/skeleton_loader.dart';
 import '../../../providers/dashboard_provider.dart';
 import '../../../providers/orders_provider.dart';
@@ -278,70 +277,225 @@ class _DateRangeSelector extends ConsumerWidget {
   }
 }
 
-class _SalesChart extends StatelessWidget {
+class _SalesChart extends StatefulWidget {
   final List<Map<String, dynamic>> salesData;
   final bool isMobile;
 
   const _SalesChart({required this.salesData, required this.isMobile});
 
   @override
+  State<_SalesChart> createState() => _SalesChartState();
+}
+
+class _SalesChartState extends State<_SalesChart> {
+  int? touchedIndex;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = context.isDarkMode;
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    
+    // Calculate summary stats
+    final totalSales = widget.salesData.fold<double>(
+      0, (sum, item) => sum + ((item['total_sales'] as num?)?.toDouble() ?? 0),
+    );
+    final avgSales = widget.salesData.isNotEmpty ? totalSales / widget.salesData.length : 0.0;
+    final maxSales = widget.salesData.isEmpty 
+        ? 0.0 
+        : widget.salesData.map((e) => (e['total_sales'] as num?)?.toDouble() ?? 0).reduce((a, b) => a > b ? a : b);
     
     return AppCard(
-      padding: EdgeInsets.all(isMobile ? 16 : 20),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with title and trend badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Sales Overview',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark ? AppColors.darkTextPrimary : null,
-                ),
-              ),
-              if (!isMobile)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Icon(Icons.trending_up, size: 14, color: AppColors.success),
-                      SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.primary.withValues(alpha: 0.2),
+                              AppColors.primaryLight.withValues(alpha: 0.1),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Iconsax.chart_21,
+                          size: widget.isMobile ? 18 : 22,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       Text(
-                        '+15.3%',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.success,
+                        'Sales Overview',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: isDark ? AppColors.darkTextPrimary : null,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
+                  if (!widget.isMobile) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Revenue trend for the selected period',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              // Trend indicator
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.isMobile ? 10 : 14,
+                  vertical: widget.isMobile ? 6 : 8,
                 ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.success.withValues(alpha: 0.15),
+                      AppColors.success.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.trending_up_rounded,
+                      size: widget.isMobile ? 14 : 16,
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '+15.3%',
+                      style: TextStyle(
+                        fontSize: widget.isMobile ? 11 : 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          
+          // Quick stats row
+          if (!widget.isMobile && widget.salesData.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                _buildQuickStat(
+                  context,
+                  isDark,
+                  'Total',
+                  currencyFormat.format(totalSales),
+                  AppColors.primary,
+                ),
+                const SizedBox(width: 24),
+                _buildQuickStat(
+                  context,
+                  isDark,
+                  'Average',
+                  currencyFormat.format(avgSales),
+                  AppColors.info,
+                ),
+                const SizedBox(width: 24),
+                _buildQuickStat(
+                  context,
+                  isDark,
+                  'Peak',
+                  currencyFormat.format(maxSales),
+                  AppColors.success,
+                ),
+              ],
+            ),
+          ],
+          
+          SizedBox(height: widget.isMobile ? 20 : 28),
+          
+          // Chart
           SizedBox(
-            height: isMobile ? 180 : 250,
-            child: salesData.isEmpty
-                ? Center(child: Text('No sales data available', style: TextStyle(color: isDark ? AppColors.darkTextSecondary : null)))
+            height: widget.isMobile ? 180 : 280,
+            child: widget.salesData.isEmpty
+                ? _buildEmptyState(isDark)
                 : LineChart(
                     LineChartData(
+                      lineTouchData: LineTouchData(
+                        enabled: true,
+                        touchTooltipData: LineTouchTooltipData(
+                          tooltipBgColor: isDark 
+                              ? AppColors.darkCardBackground 
+                              : AppColors.white,
+                          tooltipBorder: BorderSide(
+                            color: isDark ? AppColors.darkCardBorder : AppColors.grey200,
+                          ),
+                          tooltipRoundedRadius: 12,
+                          tooltipPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              final index = spot.x.toInt();
+                              if (index >= widget.salesData.length) return null;
+                              final date = widget.salesData[index]['date'] as String;
+                              final formattedDate = DateFormat('MMM d').format(DateTime.parse(date));
+                              return LineTooltipItem(
+                                '$formattedDate\n',
+                                TextStyle(
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: currencyFormat.format(spot.y),
+                                    style: TextStyle(
+                                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList();
+                          },
+                        ),
+                        handleBuiltInTouches: true,
+                        touchCallback: (event, response) {
+                          if (response?.lineBarSpots != null && event is FlTapUpEvent) {
+                            setState(() {
+                              touchedIndex = response!.lineBarSpots!.first.x.toInt();
+                            });
+                          }
+                        },
+                      ),
                       gridData: FlGridData(
                         show: true,
                         drawVerticalLine: false,
-                        horizontalInterval: 1,
+                        horizontalInterval: _calculateInterval(maxSales),
                         getDrawingHorizontalLine: (value) {
                           return FlLine(
-                            color: isDark ? AppColors.darkCardBorder : AppColors.grey200,
+                            color: isDark 
+                                ? AppColors.darkCardBorder.withValues(alpha: 0.5) 
+                                : AppColors.grey200,
                             strokeWidth: 1,
+                            dashArray: [5, 5],
                           );
                         },
                       ),
@@ -356,20 +510,24 @@ class _SalesChart extends StatelessWidget {
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
-                            reservedSize: 30,
-                            interval: isMobile ? 2 : 1,
+                            reservedSize: 32,
+                            interval: widget.isMobile ? 2 : 1,
                             getTitlesWidget: (value, meta) {
-                              if (value.toInt() >= salesData.length) {
+                              if (value.toInt() >= widget.salesData.length) {
                                 return const Text('');
                               }
-                              final date = salesData[value.toInt()]['date'] as String;
+                              final date = widget.salesData[value.toInt()]['date'] as String;
+                              final isTouch = touchedIndex == value.toInt();
                               return Padding(
-                                padding: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.only(top: 10),
                                 child: Text(
                                   DateFormat('E').format(DateTime.parse(date)),
                                   style: TextStyle(
-                                    color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
-                                    fontSize: isMobile ? 10 : 11,
+                                    color: isTouch 
+                                        ? AppColors.primary 
+                                        : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
+                                    fontSize: widget.isMobile ? 10 : 11,
+                                    fontWeight: isTouch ? FontWeight.w600 : FontWeight.normal,
                                   ),
                                 ),
                               );
@@ -378,12 +536,12 @@ class _SalesChart extends StatelessWidget {
                         ),
                         leftTitles: AxisTitles(
                           sideTitles: SideTitles(
-                            showTitles: !isMobile,
-                            interval: 1000,
-                            reservedSize: 50,
+                            showTitles: !widget.isMobile,
+                            interval: _calculateInterval(maxSales),
+                            reservedSize: 55,
                             getTitlesWidget: (value, meta) {
                               return Text(
-                                '₹${(value / 1000).toStringAsFixed(0)}k',
+                                _formatValue(value),
                                 style: TextStyle(
                                   color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
                                   fontSize: 11,
@@ -394,27 +552,37 @@ class _SalesChart extends StatelessWidget {
                         ),
                       ),
                       borderData: FlBorderData(show: false),
+                      minY: 0,
                       lineBarsData: [
                         LineChartBarData(
-                          spots: salesData.asMap().entries.map((entry) {
+                          spots: widget.salesData.asMap().entries.map((entry) {
                             return FlSpot(
                               entry.key.toDouble(),
                               (entry.value['total_sales'] as num?)?.toDouble() ?? 0,
                             );
                           }).toList(),
                           isCurved: true,
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryLight, AppColors.primary],
+                          curveSmoothness: 0.35,
+                          preventCurveOverShooting: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.primaryLight,
+                              AppColors.primary,
+                              AppColors.primary.withValues(alpha: 0.8),
+                            ],
                           ),
-                          barWidth: isMobile ? 2 : 3,
+                          barWidth: widget.isMobile ? 3 : 4,
                           isStrokeCapRound: true,
                           dotData: FlDotData(
-                            show: !isMobile,
+                            show: true,
                             getDotPainter: (spot, percent, barData, index) {
+                              final isTouch = touchedIndex == index;
                               return FlDotCirclePainter(
-                                radius: 4,
-                                color: isDark ? AppColors.darkCardBackground : AppColors.white,
-                                strokeWidth: 2,
+                                radius: isTouch ? 6 : (widget.isMobile ? 0 : 4),
+                                color: isTouch 
+                                    ? AppColors.primary 
+                                    : (isDark ? AppColors.darkCardBackground : AppColors.white),
+                                strokeWidth: isTouch ? 3 : 2,
                                 strokeColor: AppColors.primary,
                               );
                             },
@@ -425,9 +593,11 @@ class _SalesChart extends StatelessWidget {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                AppColors.primary.withValues(alpha: isDark ? 0.3 : 0.2),
+                                AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.25),
+                                AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.08),
                                 AppColors.primary.withValues(alpha: 0.0),
                               ],
+                              stops: const [0.0, 0.5, 1.0],
                             ),
                           ),
                         ),
@@ -439,7 +609,99 @@ class _SalesChart extends StatelessWidget {
       ),
     );
   }
+  
+  Widget _buildQuickStat(
+    BuildContext context,
+    bool isDark,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Iconsax.chart_fail,
+            size: 48,
+            color: isDark ? AppColors.darkTextTertiary : AppColors.grey300,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No sales data available',
+            style: TextStyle(
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Start making sales to see your chart',
+            style: TextStyle(
+              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  double _calculateInterval(double maxValue) {
+    if (maxValue <= 1000) return 250;
+    if (maxValue <= 5000) return 1000;
+    if (maxValue <= 10000) return 2500;
+    if (maxValue <= 50000) return 10000;
+    return 25000;
+  }
+  
+  String _formatValue(double value) {
+    if (value >= 100000) {
+      return '₹${(value / 100000).toStringAsFixed(1)}L';
+    } else if (value >= 1000) {
+      return '₹${(value / 1000).toStringAsFixed(0)}k';
+    }
+    return '₹${value.toStringAsFixed(0)}';
+  }
 }
+
 
 class _TopProducts extends StatelessWidget {
   final List<Map<String, dynamic>> products;

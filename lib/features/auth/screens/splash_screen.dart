@@ -133,53 +133,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _initializeAndNavigate();
   }
 
-  /// Skip splash and navigate directly
-  Future<void> _skipToNavigation() async {
-    if (!mounted) return;
-    
-    try {
-      // Check if any users exist
-      final users = await UserRepository().getAll();
-      final hasNoUsers = users.isEmpty;
 
-      // Check for active session
-      final prefs = await SharedPreferences.getInstance();
-      final hasActiveSession = prefs.getBool(AppConstants.hasActiveSessionKey) ?? false;
-      final lastUserId = prefs.getString(AppConstants.lastLoggedInUserKey);
-
-      if (!mounted) return;
-
-      Widget destination;
-      
-      if (hasNoUsers) {
-        destination = const SetupWizardScreen();
-      } else if (hasActiveSession && lastUserId != null) {
-        await ref.read(authProvider.notifier).restoreSession(lastUserId);
-        destination = const LoginScreen(mode: LoginMode.pinOnly);
-      } else {
-        destination = const LoginScreen(mode: LoginMode.full);
-      }
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => destination,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
-    } catch (e) {
-      // On error, go to login screen
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen(mode: LoginMode.full)),
-        );
-      }
-    }
-  }
 
   @override
   void dispose() {
@@ -322,52 +276,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ),
                       ],
                     ],
-                  ),
-                ),
-              ),
-            ),
-            
-            // Skip button at top-right
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.all(isDesktop ? 24 : 16),
-                  child: AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _fadeAnimation.value,
-                        child: child,
-                      );
-                    },
-                    child: TextButton.icon(
-                      onPressed: _skipToNavigation,
-                      icon: Icon(
-                        Icons.arrow_forward_ios,
-                        size: isDesktop ? 18 : 14,
-                        color: AppColors.white.withValues(alpha: 0.9),
-                      ),
-                      label: Text(
-                        'Skip',
-                        style: TextStyle(
-                          color: AppColors.white.withValues(alpha: 0.9),
-                          fontSize: isDesktop ? 16 : 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.white.withValues(alpha: 0.15),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isDesktop ? 20 : 16,
-                          vertical: isDesktop ? 12 : 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               ),

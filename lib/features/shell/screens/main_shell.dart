@@ -211,9 +211,15 @@ class _MainShellState extends ConsumerState<MainShell> {
               )
             : null,
         // Bottom navigation for mobile
-        bottomNavigationBar: isMobile
+        bottomNavigationBar: isMobile && filteredItems.isNotEmpty
             ? _MobileBottomNav(
-                items: bottomNavOrder.map((id) => filteredItems.firstWhere((item) => item.id == id, orElse: () => filteredItems.first)).toList(),
+                items: bottomNavOrder
+                    .map((id) => filteredItems.firstWhere(
+                          (item) => item.id == id,
+                          orElse: () => filteredItems.first,
+                        ))
+                    .where((item) => filteredItems.contains(item))
+                    .toList(),
                 selectedId: selectedItem,
                 onItemSelected: (id) {
                   ref.read(selectedNavItemProvider.notifier).state = id;
